@@ -48,7 +48,7 @@ class NatsClient(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password=""):
+                 password="", on_msg=None):
         """
 
         @param verbose: Turns on +OK protocol acknowledgements.
@@ -77,6 +77,7 @@ class NatsClient(Protocol):
             "lang": LANG,
             "version": VERSION,
         }
+        self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
 
     def dataReceived(self, data):
@@ -90,8 +91,12 @@ class NatsClient(Protocol):
         elif command == "MSG ":
             meta_data = data_buf.readline()
             n_bytes = int(meta_data.split(" ")[-1])
-            stdout.write(data_buf.read(n_bytes))
-            stdout.write(data_buf.readline())
+            if self.on_msg:
+                self.on_msg(self, data_buf.read(n_bytes))
+                data_buf.readline()
+            else:
+                stdout.write(data_buf.read(n_bytes))
+                stdout.write(data_buf.readline())
         elif command == "PING":
             self.pong()
             data_buf.readline()

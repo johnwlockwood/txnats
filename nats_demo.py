@@ -19,6 +19,12 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
 
 
+def my_on_msg(nats_client, data):
+    stdout.write("yay\r\n")
+    stdout.write(data)
+    stdout.write("\r\n*")
+
+
 @defer.inlineCallbacks
 def somePubSubbing(nats_client):
     nats_client.ping()
@@ -28,6 +34,7 @@ def somePubSubbing(nats_client):
     nats_client.pub("happy", "How")
     nats_client.pub("happy", "Are")
     nats_client.pub("happy", "You?")
+    nats_client.pub("happy", "Anyone listening?")
     yield reactor.callLater(60, nats_client.transport.loseConnection)
 
 
@@ -37,7 +44,7 @@ def main(reactor):
     port = 4222
 
     point = TCP4ClientEndpoint(reactor, host, port)
-    nats_client = NatsClient()
+    nats_client = NatsClient(verbose=False, on_msg=my_on_msg)
     nats_client.on_connect_d.addCallback(somePubSubbing)
 
     d = connectProtocol(point, nats_client)
