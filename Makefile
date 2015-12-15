@@ -17,7 +17,7 @@ buildclean: clean
 distclean: clean buildclean
 	rm -rf $(DIST_DIR)
 	rm -rf $(EGG)
-	rm ./txnatsc
+	rm -rf ./txnatsc
 
 coverclean: clean
 	rm -rf $(COVER_DIR)
