@@ -6,6 +6,7 @@ import txnats
 from twisted.python import log
 
 from twisted.internet import defer
+from twisted.internet import task
 from twisted.internet import reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
@@ -37,11 +38,17 @@ def somePubSubbing(nats_protocol):
     nats_protocol.pub("happy", "You?")
     nats_protocol.pub("happy", "Anyone listening?")
     nats_protocol.pub("lucky", "WIN!!!", "gimmie")
-    nats_protocol.reactor.callLater(1, nats_protocol.pub, "lucky",
-                                    "and another thing", "gimmie")
-    yield nats_protocol.reactor.callLater(
-        3, nats_protocol.transport.loseConnection)
-    reactor.callLater(3.1, reactor.stop)
+    d = task.deferLater(nats_protocol.reactor, 0.5,
+                        nats_protocol.pub, "lucky",
+                        "heya", "gimmie")
+    yield d
+    yield task.deferLater(nats_protocol.reactor,
+                          4, nats_protocol.pub, "lucky",
+                          "and another thing", "gimmie")
+    yield task.deferLater(nats_protocol.reactor,
+                          1, nats_protocol.transport.loseConnection)
+
+    yield task.deferLater(nats_protocol.reactor, 1, reactor.stop)
 
 
 def main(reactor):
