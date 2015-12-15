@@ -43,7 +43,7 @@ class NatsError(Exception):
     "Nats Error"
 
 
-class NatsClient(Protocol):
+class NatsProtocol(Protocol):
     server_settings = None
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,

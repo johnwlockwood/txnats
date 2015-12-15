@@ -8,7 +8,7 @@ from collections import namedtuple
 
 from zope.interface import Interface, Attribute
 
-from txnats import NatsClient
+import txnats
 
 from twisted.python import log
 
@@ -44,7 +44,7 @@ def main(reactor):
     port = 4222
 
     point = TCP4ClientEndpoint(reactor, host, port)
-    nats_client = NatsClient(verbose=False, on_msg=my_on_msg)
+    nats_client = txnats.io.NatsProtocol(verbose=False, on_msg=my_on_msg)
     nats_client.on_connect_d.addCallback(somePubSubbing)
 
     d = connectProtocol(point, nats_client)
