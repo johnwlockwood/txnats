@@ -1,8 +1,8 @@
 from sys import stdout
-from sys import stderr
 import logging
 import json
 from io import BytesIO
+from io import BufferedReader
 from collections import namedtuple
 
 from twisted.python import log
@@ -10,11 +10,9 @@ from twisted.python import log
 from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.endpoints import connectProtocol
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 LANG = "py.twisted"
 CLIENT_NAME = "xnats"
 
@@ -79,41 +77,60 @@ class NatsProtocol(Protocol):
         }
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
+        self.sids = {}
 
     def dataReceived(self, data):
-        data_buf = BytesIO(data)
-        command = data_buf.read(4)
-        if command == "-ERR":
-            self.status = DISCONNECTED
-            raise NatsError(data_buf.read())
-        elif command == "+OK\r":
-            data_buf.read(1)
-        elif command == "MSG ":
-            meta_data = data_buf.readline()
-            n_bytes = int(meta_data.split(" ")[-1])
-            if self.on_msg:
-                self.on_msg(self, data_buf.read(n_bytes))
+        data_buf = BufferedReader(BytesIO(data))
+        while True:
+            command = data_buf.read(4)
+            if command == "-ERR":
+                self.status = DISCONNECTED
+                raise NatsError(data_buf.read())
+            elif command == "+OK\r":
+                data_buf.read(1)
+            elif command == "MSG ":
+                meta_data = data_buf.readline().split(" ")
+                n_bytes = int(meta_data[-1])
+                subject = meta_data[0]
+                if len(meta_data) == 4:
+                    reply_to = meta_data[2]
+                else:
+                    reply_to = None
+                sid = int(meta_data[1])
+                if sid in self.sids:
+                    on_msg = self.sids[sid]
+                else:
+                    on_msg = None
+
+                if on_msg:
+                    on_msg(self, sid, subject, reply_to,
+                           data_buf.read(n_bytes))
+                    data_buf.readline()
+                elif self.on_msg:
+                    self.on_msg(self, data_buf.read(n_bytes))
+                    data_buf.readline()
+                else:
+                    stdout.write(data_buf.read(n_bytes))
+                    stdout.write(data_buf.readline())
+            elif command == "PING":
+                self.pong()
                 data_buf.readline()
+            elif command == "PONG":
+                self.pout -= 1
+                data_buf.readline()
+            elif command == "INFO":
+                settings = json.loads(data_buf.read())
+                self.server_settings = ServerInfo(**settings)
+                self.status = CONNECTED
+                self.connect()
+                self.on_connect_d.callback(self)
             else:
-                stdout.write(data_buf.read(n_bytes))
-                stdout.write(data_buf.readline())
-        elif command == "PING":
-            self.pong()
-            data_buf.readline()
-        elif command == "PONG":
-            data_buf.readline()
-        elif command == "INFO":
-            settings = json.loads(data_buf.read())
-            self.server_settings = ServerInfo(**settings)
-            self.status = CONNECTED
-            self.connect()
-            self.on_connect_d.callback(self)
-        else:
-            log.msg("Not handled command is: {!r}".format(command),
-                    logLevel=logging.DEBUG)
-        data = data_buf.read()
-        if data:
-            self.dataReceived(data)
+                log.msg("Not handled command is: {!r}".format(command),
+                        logLevel=logging.DEBUG)
+            if not data_buf.peek(1):
+                log.msg("emptied data",
+                        logLevel=logging.DEBUG)
+                break
 
     def connect(self):
         """
@@ -138,11 +155,12 @@ class NatsProtocol(Protocol):
         if reply_to:
             reply_part = b"{} ".format(reply_to)
 
+        # TODO: deal with the payload if it is bigger than the server max.
         op = b"PUB {} {}{}\r\n{}\r\n".format(
             subject, reply_part, len(payload), payload)
         self.transport.write(op)
 
-    def sub(self, subject, sid, queue_group=None):
+    def sub(self, subject, sid, queue_group=None, on_msg=None):
         """
         Subscribe to a subject.
 
@@ -151,6 +169,8 @@ class NatsProtocol(Protocol):
         @param queue_group: If specified, the subscriber will
          join this queue group.
         """
+        self.sids[sid] = on_msg
+
         queue_group_part = b""
         if queue_group:
             queue_group_part = b"{} ".format(queue_group)
@@ -184,6 +204,7 @@ class NatsProtocol(Protocol):
         """
         op = b"PING\r\n"
         self.transport.write(op)
+        self.pout += 1
 
     def pong(self):
         """
