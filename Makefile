@@ -5,16 +5,19 @@ PIP := pip
 BUILD_DIR := ./build
 DIST_DIR := ./dist
 COVER_DIR := ./_trial_temp/coverage
+EGG := ./txnats.egg-info
+
 
 clean:
 	find . -name "*.py[co]" -delete
-	rm -f .coverage
 
 buildclean: clean
 	rm -rf $(BUILD_DIR)
 
 distclean: clean buildclean
 	rm -rf $(DIST_DIR)
+	rm -rf $(EGG)
+	rm ./txnatsc
 
 coverclean: clean
 	rm -rf $(COVER_DIR)
