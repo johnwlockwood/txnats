@@ -11,7 +11,15 @@ I suggest creating a virtualenv.
 
     $ make prepare-example
 
-Open two extra terminal windows and run ./example/respond.py from one 
-and ./example/sub_only.py from the other.
-Then from the first window run ./example/nats_demo.py
+Open two extra terminal windows and from one run:
+
+    $ ./example/respond.py
+    
+from the other run:
+
+    $ ./example/sub_only.py 
+    
+Then from the first window run:
+
+    ./example/nats_demo.py
 
