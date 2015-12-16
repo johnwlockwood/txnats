@@ -11,7 +11,7 @@ EGG := ./txnats.egg-info
 clean:
 	find . -name "*.py[co]" -delete
 
-buildclean: clean
+buildclean: clean 
 	rm -rf $(BUILD_DIR)
 
 distclean: clean buildclean
@@ -46,6 +46,13 @@ build: distclean
 
 build_win:
 	python setup.py bdist_wininst
+
+build-for-example: clean 
+	python setup.py build
+	rm -rf example/txnats
+	cp -R $(BUILD_DIR)/lib/txnats example/ 
+
+prepare-example: build-for-example buildclean
 
 release: distclean
 	python setup.py sdist upload -r pypi
