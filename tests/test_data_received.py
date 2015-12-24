@@ -1,4 +1,5 @@
 from mock import patch
+from mock import Mock
 
 import json
 
@@ -40,12 +41,50 @@ class TestDataReceived(BaseTest):
         Ensure a MSG command split across dataReceived within the payload is
         still processed the same, even if the payload ends with newline bytes.
         """
+        with patch("txnats.io.NatsProtocol.transport") as mock_transport:
+            mock_msg_handler = Mock()
+            self.nats_protocol.sub('inbox', 7, on_msg=mock_msg_handler)
+            mock_transport.write.assert_called_once_with("SUB inbox 7\r\n")
+            self.nats_protocol.dataReceived(
+                "MSG mysubject 1 inbox1 7\r\nh\r\n"
+            )
+            self.nats_protocol.dataReceived(
+                "ello\r\n"
+            )
+            mock_msg_handler.assert_called_once_with("h\r\nello")
+
+    def test_split_msg_command(self):
+        """
+        Ensure a MSG command split within the first few bytes is handled.
+        """
+        with patch("txnats.io.NatsProtocol.transport") as mock_transport:
+            mock_msg_handler = Mock()
+            self.nats_protocol.sub('inbox', 7, on_msg=mock_msg_handler)
+            mock_transport.write.assert_called_once_with("SUB inbox 7\r\n")
+            self.nats_protocol.dataReceived(
+                "MS"
+            )
+            self.nats_protocol.dataReceived(
+                "G mysubject 1 inbox1 7\r\nh\r\nello\r\n"
+            )
+            mock_msg_handler.assert_called_once_with("h\r\nello")
 
     def test_split_stream(self):
         """
         Ensure a command split across multiple dataReceived calls is parsed
         and handled the same as commands wholely within one dataReceived.
         """
+        with patch("txnats.io.NatsProtocol.transport") as mock_transport:
+            mock_transport.assert_called_once_with("")
+            self.nats_protocol.dataReceived(
+                "PI"
+            )
+            self.nats_protocol.dataReceived(
+                "NG\r\n"
+            )
+            mock_transport.write.assert_called_once_with(
+                'PONG\r\n'
+            )
 
     @defer.inlineCallbacks
     def test_info(self):
