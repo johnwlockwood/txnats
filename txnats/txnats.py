@@ -10,6 +10,9 @@ from twisted.python import log
 from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
+from twisted.internet.protocol import connectionDone
+from twisted.python import failure
+from twisted.internet import error
 
 
 VERSION = "0.2.0"
@@ -63,6 +66,7 @@ class NatsProtocol(Protocol):
         self.verbose = verbose
         # Set the number of PING sent out
         self.pout = 0
+        self.BAD_STATE = False
 
         self.client_info = {
             "verbose": verbose,
@@ -79,39 +83,73 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         self.sids = {}
 
+    def connectionLost(self, reason=connectionDone):
+        """Called when the connection is shut down.
+
+        Clear any circular references here, and any external references
+        to this Protocol.  The connection has been closed.
+
+        @type reason: L{twisted.python.failure.Failure}
+        """
+        self.status = DISCONNECTED
+        if reason == error.ConnectionLost:
+            log.msg("Connection Lost")
+            pass
+        # TODO: add reconnect
+        # TODO: add resubscribe
+
     def dataReceived(self, data):
+        # TODO: if there is a left over command, join it to the front of data.
+        # TODO: if the last line doesn't end with a new line, put the
+        # beginning of the last command aside.
+        # TODO: if the last line is preceded by a MSG line, verify this line is
+        # the number of bytes expected. if not, put aside last full command.
         data_buf = BufferedReader(BytesIO(data))
+        if self.BAD_STATE:
+            log.msg("data was bad {!r}".format(data_buf.read()))
+            self.BAD_STATE = False
+            raise ValueError("last data was bad")
+
         while True:
             command = data_buf.read(4)
             if command == "-ERR":
-                self.status = DISCONNECTED
                 raise NatsError(data_buf.read())
             elif command == "+OK\r":
                 data_buf.read(1)
             elif command == "MSG ":
                 meta_data = data_buf.readline().split(" ")
-                n_bytes = int(meta_data[-1])
-                subject = meta_data[0]
-                if len(meta_data) == 4:
-                    reply_to = meta_data[2]
-                else:
-                    reply_to = None
-                sid = int(meta_data[1])
-                if sid in self.sids:
-                    on_msg = self.sids[sid]
-                else:
-                    on_msg = None
+                # TODO: This failed. somehow it got inbox123 and tried to cast
+                # to int.
+                try:
+                    n_bytes = int(meta_data[-1])
+                    subject = meta_data[0]
+                    if len(meta_data) == 4:
+                        reply_to = meta_data[2]
+                    else:
+                        reply_to = None
+                    sid = int(meta_data[1])
 
-                if on_msg:
-                    on_msg(self, sid, subject, reply_to,
-                           data_buf.read(n_bytes))
-                    data_buf.readline()
-                elif self.on_msg:
-                    self.on_msg(self, data_buf.read(n_bytes))
-                    data_buf.readline()
-                else:
-                    stdout.write(data_buf.read(n_bytes))
-                    stdout.write(data_buf.readline())
+                    if sid in self.sids:
+                        on_msg = self.sids[sid]
+                    else:
+                        on_msg = None
+
+                    if on_msg:
+                        on_msg(
+                            self, sid, subject, reply_to,
+                            data_buf.read(n_bytes))
+                        data_buf.readline()
+                    elif self.on_msg:
+                        self.on_msg(self, data_buf.read(n_bytes))
+                        data_buf.readline()
+                    else:
+                        stdout.write(data_buf.read(n_bytes))
+                        stdout.write(data_buf.readline())
+                except ValueError as e:
+                    log.err("meta data weird {}, rest of data: {!r}".format(
+                        meta_data, data_buf.read()))
+                    self.BAD_STATE = True
+
             elif command == "PING":
                 self.pong()
                 data_buf.readline()
@@ -121,9 +159,12 @@ class NatsProtocol(Protocol):
             elif command == "INFO":
                 settings = json.loads(data_buf.read())
                 self.server_settings = ServerInfo(**settings)
+                log.msg(json.dumps(settings), separators=(',', ':'))
                 self.status = CONNECTED
                 self.connect()
-                self.on_connect_d.callback(self)
+                if self.on_connect_d:
+                    self.on_connect_d.callback(self)
+                    self.on_connect_d = None
             else:
                 log.msg("Not handled command is: {!r}".format(command),
                         logLevel=logging.DEBUG)
@@ -212,4 +253,15 @@ class NatsProtocol(Protocol):
         """
         op = b"PONG\r\n"
         self.transport.write(op)
+
+    def request(self, sid, subject):
+        """
+        Make a synchronous request for a subject.
+
+        Make a reply to.
+        Subscribe to the subject.
+        Make a Deferred and add it to the inbox under the reply to.
+        Do auto unsubscribe for one message.
+        """
+
 
