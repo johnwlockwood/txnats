@@ -35,6 +35,18 @@ class BaseTest(unittest.TestCase):
 
 
 class TestDataReceived(BaseTest):
+    def test_split_msg_payload(self):
+        """
+        Ensure a MSG command split across dataReceived within the payload is
+        still processed the same, even if the payload ends with newline bytes.
+        """
+
+    def test_split_stream(self):
+        """
+        Ensure a command split across multiple dataReceived calls is parsed
+        and handled the same as commands wholely within one dataReceived.
+        """
+
     @defer.inlineCallbacks
     def test_info(self):
         """
