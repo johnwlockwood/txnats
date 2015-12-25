@@ -10,9 +10,11 @@ from twisted.python import log
 from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
+from twisted.internet.protocol import connectionDone
+from twisted.internet import error
 
+from . import _meta
 
-VERSION = "0.2.0"
 LANG = "py.twisted"
 CLIENT_NAME = "xnats"
 
@@ -63,6 +65,7 @@ class NatsProtocol(Protocol):
         self.verbose = verbose
         # Set the number of PING sent out
         self.pout = 0
+        self.remaining_bytes = b''
 
         self.client_info = {
             "verbose": verbose,
@@ -73,60 +76,117 @@ class NatsProtocol(Protocol):
             "pass": password,
             "name": CLIENT_NAME,
             "lang": LANG,
-            "version": VERSION,
+            "version": _meta.version,
         }
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
         self.sids = {}
 
+    def connectionLost(self, reason=connectionDone):
+        """Called when the connection is shut down.
+
+        Clear any circular references here, and any external references
+        to this Protocol.  The connection has been closed.
+
+        @type reason: L{twisted.python.failure.Failure}
+        """
+        self.status = DISCONNECTED
+        self.remaining_bytes = b''
+        if reason == error.ConnectionLost:
+            log.msg("Connection Lost")
+            pass
+        # TODO: add reconnect
+        # TODO: add resubscribe
+
     def dataReceived(self, data):
+        if self.remaining_bytes:
+            data = self.remaining_bytes + data
+            self.remaining_bytes = b''
+
         data_buf = BufferedReader(BytesIO(data))
         while True:
             command = data_buf.read(4)
-            if command == "-ERR":
-                self.status = DISCONNECTED
+            if command == b"-ERR":
                 raise NatsError(data_buf.read())
-            elif command == "+OK\r":
-                data_buf.read(1)
+            elif command == b"+OK\r":
+                val = data_buf.read(1)
+                if val != b'\n':
+                    self.remaining_bytes += command
+                    break
             elif command == "MSG ":
-                meta_data = data_buf.readline().split(" ")
+                val = data_buf.readline()
+                if not val:
+                    self.remaining_bytes += command
+                    break
+                if not val.endswith(b'\r\n'):
+                    self.remaining_bytes += command + val
+                    break
+
+                meta_data = val.split(" ")
                 n_bytes = int(meta_data[-1])
                 subject = meta_data[0]
                 if len(meta_data) == 4:
                     reply_to = meta_data[2]
-                else:
+                elif len(meta_data) == 3:
                     reply_to = None
+                else:
+                    self.remaining_bytes += command + val
+                    break
+
                 sid = int(meta_data[1])
+
                 if sid in self.sids:
                     on_msg = self.sids[sid]
                 else:
                     on_msg = None
 
+                payload = data_buf.read(n_bytes)
+                if len(payload) != n_bytes:
+                    self.remaining_bytes += command + val + payload
+                    break
+
                 if on_msg:
-                    on_msg(self, sid, subject, reply_to,
-                           data_buf.read(n_bytes))
-                    data_buf.readline()
+                    on_msg(self, sid, subject, reply_to, payload)
                 elif self.on_msg:
-                    self.on_msg(self, data_buf.read(n_bytes))
-                    data_buf.readline()
+                    self.on_msg(self, payload)
                 else:
-                    stdout.write(data_buf.read(n_bytes))
-                    stdout.write(data_buf.readline())
+                    stdout.write(payload)
+
+                payload_post = data_buf.readline()
+                if payload_post != b'\r\n':
+                    self.remaining_bytes += (command + val + payload
+                                                + payload_post)
+                    break
             elif command == "PING":
                 self.pong()
-                data_buf.readline()
+                val = data_buf.readline()
+                if val != b'\r\n':
+                    self.remaining_bytes += command + val
+                    break
             elif command == "PONG":
                 self.pout -= 1
-                data_buf.readline()
+                val = data_buf.readline()
+                if val != b'\r\n':
+                    self.remaining_bytes += command + val
+                    break
             elif command == "INFO":
-                settings = json.loads(data_buf.read())
+                val = data_buf.readline()
+                if not val.endswith(b'\r\n'):
+                    self.remaining_bytes += command + val
+                    break
+                settings = json.loads(val)
                 self.server_settings = ServerInfo(**settings)
+                log.msg(json.dumps(settings), separators=(',', ':'))
                 self.status = CONNECTED
                 self.connect()
-                self.on_connect_d.callback(self)
+                if self.on_connect_d:
+                    self.on_connect_d.callback(self)
+                    self.on_connect_d = None
             else:
                 log.msg("Not handled command is: {!r}".format(command),
                         logLevel=logging.DEBUG)
+                val = data_buf.read()
+                self.remaining_bytes += command + val
             if not data_buf.peek(1):
                 log.msg("emptied data",
                         logLevel=logging.DEBUG)
@@ -212,4 +272,16 @@ class NatsProtocol(Protocol):
         """
         op = b"PONG\r\n"
         self.transport.write(op)
+
+    def request(self, sid, subject):
+        """
+        Make a synchronous request for a subject.
+
+        Make a reply to.
+        Subscribe to the subject.
+        Make a Deferred and add it to the inbox under the reply to.
+        Do auto unsubscribe for one message.
+        """
+        raise NotImplementedError()
+
 
