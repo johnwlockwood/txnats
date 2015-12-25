@@ -11,11 +11,10 @@ from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
 from twisted.internet.protocol import connectionDone
-from twisted.python import failure
 from twisted.internet import error
 
+from . import _meta
 
-VERSION = "0.3.0"
 LANG = "py.twisted"
 CLIENT_NAME = "xnats"
 
@@ -77,7 +76,7 @@ class NatsProtocol(Protocol):
             "pass": password,
             "name": CLIENT_NAME,
             "lang": LANG,
-            "version": VERSION,
+            "version": _meta.version,
         }
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()

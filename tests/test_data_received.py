@@ -144,7 +144,8 @@ class TestDataReceived(BaseTest):
 
             mock_transport.write.assert_called_once_with(
                 'CONNECT {"lang":"py.twisted","pedantic":false,'
-                '"version":"0.3.0","verbose":true,"name":"xnats",'
+                '"version":"' + txnats.__version__ + '","verbose":true,'
+                '"name":"xnats",'
                 '"pass":"","auth_token":null,'
                 '"ssl_required":false,"user":""}\r\n'
             )
