@@ -103,15 +103,11 @@ class NatsProtocol(Protocol):
         # TODO: add resubscribe
 
     def dataReceived(self, data):
-        # TODO: if there is a left over command, join it to the front of data.
         if self.remaining_bytes:
             data = self.remaining_bytes + data
             self.remaining_bytes = b''
 
-        # TODO: if the last line is preceded by a MSG line, verify this line is
-        # the number of bytes expected. if not, put aside last full command.
         data_buf = BufferedReader(BytesIO(data))
-
         try:
             while True:
                 command = data_buf.read(4)
