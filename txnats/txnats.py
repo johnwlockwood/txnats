@@ -106,6 +106,7 @@ class NatsProtocol(Protocol):
         # TODO: if there is a left over command, join it to the front of data.
         if self.remaining_bytes:
             data = self.remaining_bytes + data
+            self.remaining_bytes = b''
 
         # TODO: if the last line is preceded by a MSG line, verify this line is
         # the number of bytes expected. if not, put aside last full command.
@@ -135,8 +136,12 @@ class NatsProtocol(Protocol):
                     subject = meta_data[0]
                     if len(meta_data) == 4:
                         reply_to = meta_data[2]
-                    else:
+                    elif len(meta_data) == 3:
                         reply_to = None
+                    else:
+                        self.remaining_bytes += command + val
+                        raise IncompleteCommandError()
+
                     sid = int(meta_data[1])
 
                     if sid in self.sids:
