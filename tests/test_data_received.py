@@ -99,6 +99,9 @@ class TestDataReceived(BaseTest):
         """
         Ensure a command split across multiple dataReceived calls is parsed
         and handled the same as commands wholely within one dataReceived.
+
+        Ensure the next data received after one in where there was a previous
+        protocol split is processed normally.
         """
         with patch("txnats.io.NatsProtocol.transport") as mock_transport:
             self.nats_protocol.dataReceived(
@@ -110,6 +113,13 @@ class TestDataReceived(BaseTest):
             mock_transport.write.assert_called_once_with(
                 'PONG\r\n'
             )
+            self.nats_protocol.dataReceived(
+                "PING\r\n"
+            )
+            mock_transport.write.assert_called_with(
+                'PONG\r\n'
+            )
+            self.assertEqual(mock_transport.write.call_count, 2)
 
     @defer.inlineCallbacks
     def test_info(self):

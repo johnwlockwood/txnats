@@ -15,7 +15,7 @@ from twisted.python import failure
 from twisted.internet import error
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 LANG = "py.twisted"
 CLIENT_NAME = "xnats"
 
@@ -96,6 +96,7 @@ class NatsProtocol(Protocol):
         @type reason: L{twisted.python.failure.Failure}
         """
         self.status = DISCONNECTED
+        self.remaining_bytes = b''
         if reason == error.ConnectionLost:
             log.msg("Connection Lost")
             pass
@@ -289,5 +290,6 @@ class NatsProtocol(Protocol):
         Make a Deferred and add it to the inbox under the reply to.
         Do auto unsubscribe for one message.
         """
+        raise NotImplementedError()
 
 
