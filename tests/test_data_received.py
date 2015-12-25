@@ -53,6 +53,25 @@ class TestDataReceived(BaseTest):
             )
             mock_msg_handler.assert_called_once_with("h\r\nello")
 
+    def test_split_msg_with_partial_fake_msg_in_payload(self):
+        """
+        Ensure a MSG command split across dataReceived within the payload is
+        still processed the same, even if the payload ends with newline bytes
+        contains bytes that match the beginning of another command.
+        """
+        with patch("txnats.io.NatsProtocol.transport") as mock_transport:
+            mock_msg_handler = Mock()
+            self.nats_protocol.sub('inbox', 7, on_msg=mock_msg_handler)
+            mock_transport.write.assert_called_once_with("SUB inbox 7\r\n")
+            self.nats_protocol.dataReceived(
+                "MSG mysubject 1 inbox1 41\r\nh\r\n"
+            )
+            self.nats_protocol.dataReceived(
+                "ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
+            )
+            mock_msg_handler.assert_called_once_with(
+                "h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
+
     def test_split_msg_command(self):
         """
         Ensure a MSG command split within the first few bytes is handled.
@@ -75,7 +94,6 @@ class TestDataReceived(BaseTest):
         and handled the same as commands wholely within one dataReceived.
         """
         with patch("txnats.io.NatsProtocol.transport") as mock_transport:
-            mock_transport.assert_called_once_with("")
             self.nats_protocol.dataReceived(
                 "PI"
             )
