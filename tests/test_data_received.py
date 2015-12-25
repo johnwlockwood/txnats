@@ -8,7 +8,6 @@ from twisted.internet import task
 from twisted.internet import defer
 
 import txnats
-from txnats.txnats import IncompleteCommandError
 
 
 class BaseTest(unittest.TestCase):
@@ -52,7 +51,6 @@ class TestDataReceived(BaseTest):
             self.nats_protocol.dataReceived(
                 "ello\r\n"
             )
-            self.flushLoggedErrors(IncompleteCommandError)
             mock_msg_handler.assert_called_once_with(
                 self.nats_protocol, 1, 'mysubject', 'inbox1', 'h\r\nello')
 
@@ -72,7 +70,6 @@ class TestDataReceived(BaseTest):
             self.nats_protocol.dataReceived(
                 "ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
             )
-            self.flushLoggedErrors(IncompleteCommandError)
             mock_msg_handler.assert_called_once_with(
                 self.nats_protocol, 1, 'mysubject', 'inbox1',
                 "h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
@@ -91,7 +88,6 @@ class TestDataReceived(BaseTest):
             self.nats_protocol.dataReceived(
                 "G mysubject 1 inbox1 7\r\nh\r\nello\r\n"
             )
-            #self.flushLoggedErrors(IncompleteCommandError)
             mock_msg_handler.assert_called_once_with(
                 self.nats_protocol, 1, 'mysubject', 'inbox1', 'h\r\nello')
 
@@ -148,7 +144,7 @@ class TestDataReceived(BaseTest):
 
             mock_transport.write.assert_called_once_with(
                 'CONNECT {"lang":"py.twisted","pedantic":false,'
-                '"version":"0.2.0","verbose":true,"name":"xnats",'
+                '"version":"0.3.0","verbose":true,"name":"xnats",'
                 '"pass":"","auth_token":null,'
                 '"ssl_required":false,"user":""}\r\n'
             )

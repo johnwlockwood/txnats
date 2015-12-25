@@ -44,10 +44,6 @@ class NatsError(Exception):
     "Nats Error"
 
 
-class IncompleteCommandError(Exception):
-    "Incomplete command"
-
-
 class NatsProtocol(Protocol):
     server_settings = None
 
@@ -109,96 +105,93 @@ class NatsProtocol(Protocol):
             self.remaining_bytes = b''
 
         data_buf = BufferedReader(BytesIO(data))
-        try:
-            while True:
-                command = data_buf.read(4)
-                if command == b"-ERR":
-                    raise NatsError(data_buf.read())
-                elif command == b"+OK\r":
-                    val = data_buf.read(1)
-                    if val != b'\n':
-                        self.remaining_bytes += command
-                        raise IncompleteCommandError()
-                elif command == "MSG ":
-                    val = data_buf.readline()
-                    if not val:
-                        self.remaining_bytes += command
-                        raise IncompleteCommandError()
-                    if not val.endswith(b'\r\n'):
-                        self.remaining_bytes += command + val
-                        raise IncompleteCommandError()
-
-                    meta_data = val.split(" ")
-                    n_bytes = int(meta_data[-1])
-                    subject = meta_data[0]
-                    if len(meta_data) == 4:
-                        reply_to = meta_data[2]
-                    elif len(meta_data) == 3:
-                        reply_to = None
-                    else:
-                        self.remaining_bytes += command + val
-                        raise IncompleteCommandError()
-
-                    sid = int(meta_data[1])
-
-                    if sid in self.sids:
-                        on_msg = self.sids[sid]
-                    else:
-                        on_msg = None
-
-                    payload = data_buf.read(n_bytes)
-                    if len(payload) != n_bytes:
-                        self.remaining_bytes += command + val + payload
-                        raise IncompleteCommandError()
-
-                    if on_msg:
-                        on_msg(self, sid, subject, reply_to, payload)
-                    elif self.on_msg:
-                        self.on_msg(self, payload)
-                    else:
-                        stdout.write(payload)
-
-                    payload_post = data_buf.readline()
-                    if payload_post != b'\r\n':
-                        self.remaining_bytes += (command + val + payload
-                                                 + payload_post)
-                        raise IncompleteCommandError()
-                elif command == "PING":
-                    self.pong()
-                    val = data_buf.readline()
-                    if val != b'\r\n':
-                        self.remaining_bytes += command + val
-                        raise IncompleteCommandError()
-                elif command == "PONG":
-                    self.pout -= 1
-                    val = data_buf.readline()
-                    if val != b'\r\n':
-                        self.remaining_bytes += command + val
-                        raise IncompleteCommandError()
-                elif command == "INFO":
-                    val = data_buf.readline()
-                    if not val.endswith(b'\r\n'):
-                        self.remaining_bytes += command + val
-                        raise IncompleteCommandError()
-                    settings = json.loads(val)
-                    self.server_settings = ServerInfo(**settings)
-                    log.msg(json.dumps(settings), separators=(',', ':'))
-                    self.status = CONNECTED
-                    self.connect()
-                    if self.on_connect_d:
-                        self.on_connect_d.callback(self)
-                        self.on_connect_d = None
-                else:
-                    log.msg("Not handled command is: {!r}".format(command),
-                            logLevel=logging.DEBUG)
-                    val = data_buf.read()
-                    self.remaining_bytes += command + val
-                if not data_buf.peek(1):
-                    log.msg("emptied data",
-                            logLevel=logging.DEBUG)
+        while True:
+            command = data_buf.read(4)
+            if command == b"-ERR":
+                raise NatsError(data_buf.read())
+            elif command == b"+OK\r":
+                val = data_buf.read(1)
+                if val != b'\n':
+                    self.remaining_bytes += command
                     break
-        except IncompleteCommandError:
-            pass
+            elif command == "MSG ":
+                val = data_buf.readline()
+                if not val:
+                    self.remaining_bytes += command
+                    break
+                if not val.endswith(b'\r\n'):
+                    self.remaining_bytes += command + val
+                    break
+
+                meta_data = val.split(" ")
+                n_bytes = int(meta_data[-1])
+                subject = meta_data[0]
+                if len(meta_data) == 4:
+                    reply_to = meta_data[2]
+                elif len(meta_data) == 3:
+                    reply_to = None
+                else:
+                    self.remaining_bytes += command + val
+                    break
+
+                sid = int(meta_data[1])
+
+                if sid in self.sids:
+                    on_msg = self.sids[sid]
+                else:
+                    on_msg = None
+
+                payload = data_buf.read(n_bytes)
+                if len(payload) != n_bytes:
+                    self.remaining_bytes += command + val + payload
+                    break
+
+                if on_msg:
+                    on_msg(self, sid, subject, reply_to, payload)
+                elif self.on_msg:
+                    self.on_msg(self, payload)
+                else:
+                    stdout.write(payload)
+
+                payload_post = data_buf.readline()
+                if payload_post != b'\r\n':
+                    self.remaining_bytes += (command + val + payload
+                                                + payload_post)
+                    break
+            elif command == "PING":
+                self.pong()
+                val = data_buf.readline()
+                if val != b'\r\n':
+                    self.remaining_bytes += command + val
+                    break
+            elif command == "PONG":
+                self.pout -= 1
+                val = data_buf.readline()
+                if val != b'\r\n':
+                    self.remaining_bytes += command + val
+                    break
+            elif command == "INFO":
+                val = data_buf.readline()
+                if not val.endswith(b'\r\n'):
+                    self.remaining_bytes += command + val
+                    break
+                settings = json.loads(val)
+                self.server_settings = ServerInfo(**settings)
+                log.msg(json.dumps(settings), separators=(',', ':'))
+                self.status = CONNECTED
+                self.connect()
+                if self.on_connect_d:
+                    self.on_connect_d.callback(self)
+                    self.on_connect_d = None
+            else:
+                log.msg("Not handled command is: {!r}".format(command),
+                        logLevel=logging.DEBUG)
+                val = data_buf.read()
+                self.remaining_bytes += command + val
+            if not data_buf.peek(1):
+                log.msg("emptied data",
+                        logLevel=logging.DEBUG)
+                break
 
     def connect(self):
         """
