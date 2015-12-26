@@ -36,6 +36,12 @@ class BaseTest(unittest.TestCase):
 
 
 class TestDataReceived(BaseTest):
+    def test_queue_group_subscribe(self):
+        """
+        Ensure a given queue group is put in between the subject and
+        subscription id in the SUB command.
+        """
+
     def test_split_msg_payload(self):
         """
         Ensure a MSG command split across dataReceived within the payload is
@@ -52,7 +58,8 @@ class TestDataReceived(BaseTest):
                 "ello\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                nats_protocol=self.nats_protocol, sid=b"1",
+                subject=b'mysubject',
                 reply_to=b'inbox1', payload=b'h\r\nello')
 
     def test_split_msg_with_partial_fake_msg_in_payload(self):
@@ -72,7 +79,8 @@ class TestDataReceived(BaseTest):
                 "ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                nats_protocol=self.nats_protocol, sid=b'1',
+                subject=b'mysubject',
                 reply_to=b'inbox1',
                 payload=b"h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
 
@@ -91,7 +99,8 @@ class TestDataReceived(BaseTest):
                 "G mysubject 1 inbox1 7\r\nh\r\nello\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                nats_protocol=self.nats_protocol, sid=b'1',
+                subject=b'mysubject',
                 reply_to=b'inbox1',
                 payload=b"h\r\nello")
 
