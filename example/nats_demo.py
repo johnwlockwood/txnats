@@ -15,16 +15,16 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
 
 
-def my_on_msg(nats_protocol, data):
+def my_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write("yay\r\n")
-    stdout.write(data)
+    stdout.write(payload)
     stdout.write("\r\n*")
 
 
-def sid_on_msg(nats_protocol, sid, subject, reply_to, data):
+def sid_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write("sid: {}, subject: {}, reply-to: {}\r\n".format(
         sid, subject, reply_to))
-    stdout.write(data)
+    stdout.write(payload)
     stdout.write("\r\n*")
 
 
@@ -34,8 +34,6 @@ def somePubSubbing(nats_protocol):
     The only point of this code is to show some basic subscribing
     and publishing.
     """
-    host = "demo.nats.io"
-    port = 4222
     nats_protocol.ping()
     nats_protocol.sub("happy", 1)
 
@@ -90,13 +88,11 @@ def main(reactor):
     # TODO: make a NatsClient that does this, choosing the proper endpoint
 
     point = TCP4ClientEndpoint(reactor, host, port)
-    nats_protocol = txnats.io.NatsProtocol(verbose=False, on_msg=my_on_msg)
 
-    # Add a callback for after the TCP connection is made and the protocol has
-    # received the nats server INFO and sent a CONNECT with the client info.
-    # In this example, call our function above to do some subscribing and
-    # publishing of messages.
-    nats_protocol.on_connect_d.addCallback(somePubSubbing)
+    nats_protocol = txnats.io.NatsProtocol(
+        verbose=False,
+        on_msg=my_on_msg,
+        on_connect=somePubSubbing)
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.
