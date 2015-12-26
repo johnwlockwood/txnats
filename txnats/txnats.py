@@ -48,9 +48,11 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None):
+                 password="", on_msg=None, on_connect=None):
         """
 
+        @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
+         customizable for testing.
         @param verbose: Turns on +OK protocol acknowledgements.
         @param pedantic: Turns on additional strict format checking, e.g.
          for properly formed subjects
@@ -59,6 +61,16 @@ class NatsProtocol(Protocol):
         @param auth_token: Client authorization token
         @param user: Connection username (if auth_required is set)
         @param pass: Connection password (if auth_required is set)
+        @param on_msg: Handler for messages for subscriptions that don't have
+         their own on_msg handler. Default behavior is to write to stdout.
+         A callable that takes the following params:
+             @param nats_protocol: An instance of NatsProtocol.
+             @param sid: An int, indicating the subscription id.
+             @param subject: A valid NATS subject.
+             @param reply_to: The reply to.
+             @param payload: Bytes of the payload.
+        @param on_connect: Callable that takes this instance of NatsProtocol
+         which will be called upon the first successful connection.
         """
         self.reactor = own_reactor if own_reactor else reactor
         self.status = DISCONNECTED
@@ -78,8 +90,14 @@ class NatsProtocol(Protocol):
             "lang": LANG,
             "version": _meta.version,
         }
+        if on_msg:
+            # Ensure the on_msg signature fits.
+            on_msg(nats_protocol=self, sid=0, subject=b"test-subject",
+                   reply_to=b'', payload=b'hello, world')
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
+        if on_connect:
+            self.on_connect_d.addCallback(on_connect)
         self.sids = {}
 
     def connectionLost(self, reason=connectionDone):
@@ -87,6 +105,9 @@ class NatsProtocol(Protocol):
 
         Clear any circular references here, and any external references
         to this Protocol.  The connection has been closed.
+
+        Clear left over remaining bytes because they won't be continued
+        properly upon reconnection.
 
         @type reason: L{twisted.python.failure.Failure}
         """
@@ -99,6 +120,23 @@ class NatsProtocol(Protocol):
         # TODO: add resubscribe
 
     def dataReceived(self, data):
+        """
+        Parse the NATS.io protocol from chunks of data streaming from
+        the connected gnatsd.
+
+        The server settings will be set and connect will be sent with this
+        client's info upon an INFO, which should happen when the
+        transport connects.
+
+        Registered message callback functions will be called with MSGs
+        once parsed.
+
+        PONG will be called upon a ping.
+
+        An exception will be raised upon an ERR from gnatsd.
+
+        An +OK doesn't do anything.
+        """
         if self.remaining_bytes:
             data = self.remaining_bytes + data
             self.remaining_bytes = b''
@@ -138,7 +176,7 @@ class NatsProtocol(Protocol):
                 if sid in self.sids:
                     on_msg = self.sids[sid]
                 else:
-                    on_msg = None
+                    on_msg = self.on_msg
 
                 payload = data_buf.read(n_bytes)
                 if len(payload) != n_bytes:
@@ -146,16 +184,17 @@ class NatsProtocol(Protocol):
                     break
 
                 if on_msg:
-                    on_msg(self, sid, subject, reply_to, payload)
-                elif self.on_msg:
-                    self.on_msg(self, payload)
+                    on_msg(nats_protocol=self, sid=sid, subject=subject,
+                           reply_to=reply_to, payload=payload)
                 else:
+                    stdout.write(command)
+                    stdout.write(val)
                     stdout.write(payload)
 
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
                     self.remaining_bytes += (command + val + payload
-                                                + payload_post)
+                                             + payload_post)
                     break
             elif command == "PING":
                 self.pong()
@@ -228,6 +267,12 @@ class NatsProtocol(Protocol):
         @param sid: A unique alphanumeric subscription ID.
         @param queue_group: If specified, the subscriber will
          join this queue group.
+         @param on_msg: A callable that takes the following params:
+             @param nats_protocol: An instance of NatsProtocol.
+             @param sid: An int, indicating the subscription id.
+             @param subject: A valid NATS subject.
+             @param reply_to: The reply to.
+             @param payload: Bytes of the payload.
         """
         self.sids[sid] = on_msg
 
