@@ -76,12 +76,17 @@ try:
 except:
     license_info = 'APACHE 2.0'
 
+description = "@nats.io client protocol"
+long_description = description
+if os.path.exists('.generated_README.rst'):
+    long_description = open('.generated_README.rst').read()
+
 setup_args = dict(
     name="txnats",
     version=get_version(),
     author="John W Lockwood IV",
     author_email="john.lockwood@workiva.com",
-    description="@nats.io client protocol",
+    description=description,
     license=license_info,
     keywords="data",
     url="https://github.com/johnwlockwood/txnats",
@@ -89,7 +94,7 @@ setup_args = dict(
     packages=packages,
     install_requires=get_install_requires(),
     tests_require=get_test_requires(),
-    long_description=read('README.md'),
+    long_description=long_description,
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

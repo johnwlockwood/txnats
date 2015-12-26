@@ -3,6 +3,8 @@
 
 from sys import stdout
 from sys import stderr
+import random
+import string
 
 import txnats
 
@@ -11,6 +13,9 @@ from twisted.python import log
 from twisted.internet import reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
+
+responder_id = ''.join(
+    random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
 
 def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
@@ -23,7 +28,7 @@ def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write(payload)
     stdout.write("\r\n*")
     if reply_to:
-        nats_protocol.pub(reply_to, "Roger!")
+        nats_protocol.pub(reply_to, "Roger, from {}!".format(responder_id))
 
 
 def listen(nats_protocol):

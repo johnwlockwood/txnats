@@ -65,7 +65,7 @@ class NatsProtocol(Protocol):
          their own on_msg handler. Default behavior is to write to stdout.
          A callable that takes the following params:
              @param nats_protocol: An instance of NatsProtocol.
-             @param sid: An int, indicating the subscription id.
+             @param sid: A unique alphanumeric subscription ID.
              @param subject: A valid NATS subject.
              @param reply_to: The reply to.
              @param payload: Bytes of the payload.
@@ -171,7 +171,7 @@ class NatsProtocol(Protocol):
                     self.remaining_bytes += command + val
                     break
 
-                sid = int(meta_data[1])
+                sid = meta_data[1]
 
                 if sid in self.sids:
                     on_msg = self.sids[sid]
@@ -269,18 +269,18 @@ class NatsProtocol(Protocol):
          join this queue group.
          @param on_msg: A callable that takes the following params:
              @param nats_protocol: An instance of NatsProtocol.
-             @param sid: An int, indicating the subscription id.
+             @param sid: A unique alphanumeric subscription ID.
              @param subject: A valid NATS subject.
              @param reply_to: The reply to.
              @param payload: Bytes of the payload.
         """
-        self.sids[sid] = on_msg
+        self.sids[b"{}".format(sid)] = on_msg
 
         queue_group_part = b""
         if queue_group:
             queue_group_part = b"{} ".format(queue_group)
 
-        op = b"SUB {} {}{}\r\n".format(subject, sid, queue_group_part)
+        op = b"SUB {} {}{}\r\n".format(subject, queue_group_part, sid)
         self.transport.write(op)
 
     def unsub(self, sid, max_msgs=None):
