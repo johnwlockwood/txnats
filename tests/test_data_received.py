@@ -52,7 +52,8 @@ class TestDataReceived(BaseTest):
                 "ello\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                self.nats_protocol, 1, 'mysubject', 'inbox1', 'h\r\nello')
+                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                reply_to=b'inbox1', payload=b'h\r\nello')
 
     def test_split_msg_with_partial_fake_msg_in_payload(self):
         """
@@ -65,14 +66,15 @@ class TestDataReceived(BaseTest):
             self.nats_protocol.sub('inbox', 1, on_msg=mock_msg_handler)
             mock_transport.write.assert_called_once_with("SUB inbox 1\r\n")
             self.nats_protocol.dataReceived(
-                "MSG mysubject 1 inbox1 41\r\nh\r\n"
+                b"MSG mysubject 1 inbox1 41\r\nh\r\n"
             )
             self.nats_protocol.dataReceived(
                 "ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                self.nats_protocol, 1, 'mysubject', 'inbox1',
-                "h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
+                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                reply_to=b'inbox1',
+                payload=b"h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
 
     def test_split_msg_command(self):
         """
@@ -89,7 +91,9 @@ class TestDataReceived(BaseTest):
                 "G mysubject 1 inbox1 7\r\nh\r\nello\r\n"
             )
             mock_msg_handler.assert_called_once_with(
-                self.nats_protocol, 1, 'mysubject', 'inbox1', 'h\r\nello')
+                nats_protocol=self.nats_protocol, sid=1, subject=b'mysubject',
+                reply_to=b'inbox1',
+                payload=b"h\r\nello")
 
     def test_split_stream(self):
         """
