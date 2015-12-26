@@ -79,3 +79,7 @@ will have the messages sent to only one of them. If there are four running,
 and 100 messages are sent on the "get-response" subject, each one should 
 only have to respond to 25, distributing the work load.
 
+For full context see [queue_respond.py](example/queue_respond.py) and
+something that will make a bunch of requests on that subject.
+[make_requests.py](example/make_requests.py)
+

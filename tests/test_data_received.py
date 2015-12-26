@@ -41,6 +41,13 @@ class TestDataReceived(BaseTest):
         Ensure a given queue group is put in between the subject and
         subscription id in the SUB command.
         """
+        with patch("txnats.io.NatsProtocol.transport") as mock_transport:
+            mock_msg_handler = Mock()
+            self.nats_protocol.sub('inbox', "1",
+                                   queue_group="a-queue-group",
+                                   on_msg=mock_msg_handler)
+            mock_transport.write.assert_called_once_with(
+                "SUB inbox a-queue-group 1\r\n")
 
     def test_split_msg_payload(self):
         """
