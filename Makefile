@@ -54,7 +54,13 @@ build-for-example: clean
 
 prepare-example: build-for-example buildclean
 
-release: distclean
+update-readme:
+	pandoc -f markdown -t rst -o .generated_README.rst README.md
+
+register: distclean build update-readme
+	python setup.py register
+
+release: distclean update-readme
 	python setup.py sdist upload -r pypi
 	python setup.py bdist_egg upload -r pypi
 	python setup.py bdist_wininst upload -r pypi

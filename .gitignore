@@ -1,1 +1,7 @@
 _trial_temp
+build
+dist
+txnatsc
+txnats.egg-info
+.generated_README.rst
+example/txnats
