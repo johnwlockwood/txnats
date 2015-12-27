@@ -7,6 +7,9 @@ from twisted.trial import unittest
 from twisted.internet import task
 from twisted.internet import defer
 
+from twisted.python import failure
+from twisted.internet import error
+
 import txnats
 
 
@@ -33,6 +36,26 @@ class BaseTest(unittest.TestCase):
 
         :return:
         """
+
+
+class TestPartitionTolerance(BaseTest):
+
+    @patch("txnats.io.NatsProtocol.reconnect")
+    @patch("txnats.io.NatsProtocol.transport")
+    def test_reconnect(self, mock_transport, mock_reconnect):
+        """
+        Ensure reconnect is called upon connection lost.
+        """
+
+        mock_msg_handler = Mock()
+        self.nats_protocol.status = txnats.io.CONNECTED
+        self.nats_protocol.sub('inbox', "1", queue_group="a-queue-group",
+                               on_msg=mock_msg_handler)
+        connectionLostFailure=failure.Failure(error.ConnectionLost())
+        self.nats_protocol.connectionLost(reason=connectionLostFailure)
+        self.reactor.advance(1)
+        self.assertEqual(self.nats_protocol.status, txnats.io.DISCONNECTED)
+        self.assertEqual(mock_reconnect.call_count, 1)
 
 
 class TestDataReceived(BaseTest):

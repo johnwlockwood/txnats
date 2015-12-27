@@ -100,6 +100,9 @@ class NatsProtocol(Protocol):
             self.on_connect_d.addCallback(on_connect)
         self.sids = {}
 
+    def reconnect(self):
+        pass
+
     def connectionLost(self, reason=connectionDone):
         """Called when the connection is shut down.
 
@@ -113,8 +116,9 @@ class NatsProtocol(Protocol):
         """
         self.status = DISCONNECTED
         self.remaining_bytes = b''
-        if reason == error.ConnectionLost:
+        if reason.type == error.ConnectionLost:
             self.log.info("Connection Lost {reason}", reason=reason)
+            self.reactor.callLater(0, self.reconnect)
         # TODO: add reconnect
         # TODO: add resubscribe
 
@@ -196,6 +200,7 @@ class NatsProtocol(Protocol):
                                              + payload_post)
                     break
             elif command == "PING":
+                self.log.info("got PING")
                 self.pong()
                 val = data_buf.readline()
                 if val != b'\r\n':
@@ -203,6 +208,7 @@ class NatsProtocol(Protocol):
                     break
             elif command == "PONG":
                 self.pout -= 1
+                self.log.info("got PONG")
                 val = data_buf.readline()
                 if val != b'\r\n':
                     self.remaining_bytes += command + val
@@ -307,6 +313,7 @@ class NatsProtocol(Protocol):
         """
         op = b"PING\r\n"
         self.transport.write(op)
+        self.log.info("PING")
         self.pout += 1
 
     def pong(self):
@@ -314,6 +321,7 @@ class NatsProtocol(Protocol):
         Send pong.
         """
         op = b"PONG\r\n"
+        self.log.info("PONG")
         self.transport.write(op)
 
     def request(self, sid, subject):

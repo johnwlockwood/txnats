@@ -13,6 +13,7 @@ from twisted.logger import Logger
 log = Logger()
 
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
 
@@ -40,6 +41,9 @@ def listen(nats_protocol):
     nats_protocol.sub("a-queue", 1,
                       queue_group="excelsior",
                       on_msg=respond_on_msg)
+    pinger = LoopingCall(nats_protocol.ping)
+    pinger.reactor = nats_protocol.reactor
+    pinger.start(10, now=True)
 
 
 def create_client(reactor, host, port):
