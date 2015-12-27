@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from functools import partial
 from sys import stdout
-from sys import stderr
 import random
 import string
 
 import txnats
 
-from twisted.python import log
+from twisted.logger import globalLogPublisher
+from simple_log_observer import simpleObserver
+
+from twisted.logger import Logger
+log = Logger()
 
 from twisted.internet import defer
 from twisted.internet import task
@@ -58,17 +62,16 @@ def main(reactor):
         verbose=False,
         on_connect=someRequests)
 
-    d = connectProtocol(point, nats_protocol)
-
+    connecting = connectProtocol(point, nats_protocol)
     # Log if there is an error making the connection.
-    d.addErrback(log.msg)
+    connecting.addErrback(lambda np: log.info("{p}", p=np))
     # Log what is returned by the connectProtocol.
-    d.addCallback(log.msg)
+    connecting.addCallback(lambda np: log.info("{p}", p=np))
+    return connecting
 
-    return d
 
 if __name__ == '__main__':
-    log.startLogging(stderr, setStdout=0)
+    globalLogPublisher.addObserver(simpleObserver)
     main(reactor)
     reactor.run()
 

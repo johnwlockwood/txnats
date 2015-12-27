@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from functools import partial
 from sys import stdout
-from sys import stderr
 
 import txnats
 
-from twisted.python import log
+from twisted.logger import globalLogPublisher
+from simple_log_observer import simpleObserver
+from twisted.logger import Logger
+log = Logger()
 
 from twisted.internet import reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
@@ -26,17 +29,19 @@ def create_client(reactor, host, port):
     Start a Nats Protocol and connect it to a NATS endpoint over TCP4
     which subscribes to a subject.
     """
-    log.msg("Start client.")
+    log.info("Start client.")
     point = TCP4ClientEndpoint(reactor, host, port)
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
         on_connect=lambda np: np.sub("happy", 6, on_msg=on_happy_msg))
 
+    # Because NatsProtocol implements the Protocol interface, Twisted's
+    # connectProtocol knows how to connected to the endpoint.
     connecting = connectProtocol(point, nats_protocol)
     # Log if there is an error making the connection.
-    connecting.addErrback(log.msg)
+    connecting.addErrback(lambda np: log.info("{p}", p=np))
     # Log what is returned by the connectProtocol.
-    connecting.addCallback(log.msg)
+    connecting.addCallback(lambda np: log.info("{p}", p=np))
     return connecting
 
 
@@ -46,7 +51,7 @@ def main(reactor):
     create_client(reactor, host, port)
 
 if __name__ == '__main__':
-    log.startLogging(stderr, setStdout=0)
+    globalLogPublisher.addObserver(simpleObserver)
     main(reactor)
     reactor.run()
 

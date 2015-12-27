@@ -1,11 +1,10 @@
 from sys import stdout
-import logging
 import json
 from io import BytesIO
 from io import BufferedReader
 from collections import namedtuple
 
-from twisted.python import log
+from twisted.logger import Logger
 
 from twisted.internet import defer
 from twisted.internet import reactor
@@ -45,6 +44,7 @@ class NatsError(Exception):
 
 class NatsProtocol(Protocol):
     server_settings = None
+    log = Logger()
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
@@ -114,8 +114,7 @@ class NatsProtocol(Protocol):
         self.status = DISCONNECTED
         self.remaining_bytes = b''
         if reason == error.ConnectionLost:
-            log.msg("Connection Lost")
-            pass
+            self.log.info("Connection Lost {reason}", reason=reason)
         # TODO: add reconnect
         # TODO: add resubscribe
 
@@ -215,20 +214,19 @@ class NatsProtocol(Protocol):
                     break
                 settings = json.loads(val)
                 self.server_settings = ServerInfo(**settings)
-                log.msg(json.dumps(settings), separators=(',', ':'))
+                self.log.info("{server_info}", server_info=settings)
                 self.status = CONNECTED
                 self.connect()
                 if self.on_connect_d:
                     self.on_connect_d.callback(self)
                     self.on_connect_d = None
             else:
-                log.msg("Not handled command is: {!r}".format(command),
-                        logLevel=logging.DEBUG)
+                self.log.info("Not handled command is: {command!r}",
+                               command=command)
                 val = data_buf.read()
                 self.remaining_bytes += command + val
             if not data_buf.peek(1):
-                log.msg("emptied data",
-                        logLevel=logging.DEBUG)
+                self.log.debug("emptied data")
                 break
 
     def connect(self):
@@ -238,7 +236,7 @@ class NatsProtocol(Protocol):
         payload = b'CONNECT {}\r\n'.format(json.dumps(
             self.client_info, separators=(',', ':')))
 
-        log.msg(payload, logLevel=logging.DEBUG)
+        self.log.info(b'CONNECT {client_info}', client_info=self.client_info)
         self.transport.write(payload)
 
     def pub(self, subject,  payload, reply_to=""):
