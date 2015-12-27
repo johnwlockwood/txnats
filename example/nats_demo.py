@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from functools import partial
 from sys import stdout
-from sys import stderr
 
 import txnats
 
