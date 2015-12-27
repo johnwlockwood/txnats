@@ -74,7 +74,7 @@ def get_test_requires():
 try:
     license_info = open('LICENSE').read()
 except:
-    license_info = 'APACHE 2.0'
+    license_info = 'The MIT License (MIT)'
 
 description = "@nats.io client protocol"
 long_description = description
