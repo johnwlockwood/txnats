@@ -48,7 +48,8 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None, on_connect=None):
+                 password="", on_msg=None, on_connect=None,
+                 on_connection_lost=None):
         """
 
         @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
@@ -71,6 +72,9 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         @param on_connect: Callable that takes this instance of NatsProtocol
          which will be called upon the first successful connection.
+        @param on_connection_lost: Callable that takes this instance of
+         NatsProtocol which will be called upon the an unclean transport
+         disconnect, error.ConnectionLost.
         """
         self.reactor = own_reactor if own_reactor else reactor
         self.status = DISCONNECTED
@@ -98,9 +102,16 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
+        if on_connection_lost:
+            self.on_connection_lost = on_connection_lost
+        else:
+            self.on_connection_lost = None
         self.sids = {}
 
     def reconnect(self):
+        pass
+
+    def resubscribe(self):
         pass
 
     def connectionLost(self, reason=connectionDone):
@@ -119,6 +130,8 @@ class NatsProtocol(Protocol):
         if reason.type == error.ConnectionLost:
             self.log.info("Connection Lost {reason}", reason=reason)
             self.reactor.callLater(0, self.reconnect)
+            if self.on_connection_lost:
+                self.reactor.callLater(0, self.on_connection_lost)
         # TODO: add reconnect
         # TODO: add resubscribe
 
