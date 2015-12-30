@@ -37,7 +37,7 @@ $(BUILD_DIR)/pip-dev.log: requirements_dev.txt
 	$(PIP) install -Ur $< && touch $@
 
 unit: clean
-	trial --coverage tests
+	tox
 
 test: unit
 
