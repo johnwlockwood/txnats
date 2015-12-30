@@ -15,7 +15,7 @@ from twisted.internet import error
 from . import _meta
 
 LANG = "py.twisted"
-CLIENT_NAME = "xnats"
+CLIENT_NAME = "txnats"
 
 
 ServerInfo = namedtuple(

@@ -4,4 +4,5 @@ dist
 txnatsc
 txnats.egg-info
 .generated_README.rst
+.tox
 example/txnats
