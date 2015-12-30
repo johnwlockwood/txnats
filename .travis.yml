@@ -7,7 +7,7 @@ env:
   - TOX_ENV=py27-tests
 
 script:
-  - tox -c tox.ini -e $TOX_ENV
+  - tox
 
 matrix:
   fast_finish: true
