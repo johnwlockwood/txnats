@@ -1,9 +1,16 @@
 language: python
-python:
-  - "2.7"
-# command to install dependencies
-install: 
-  - pip install -r requirements.txt
-  - pip install -r requirements_dev.txt
-# command to run tests
-script: trial tests
+sudo: false
+install:
+  - pip install tox
+
+env:
+  - TOX_ENV=py27-tests
+
+script:
+  - tox -c tox.ini -e $TOX_ENV
+
+matrix:
+  fast_finish: true
+  include:
+    - python: 2.7
+      env: TOX_ENV=py27-tests
