@@ -161,9 +161,9 @@ class NatsProtocol(Protocol):
 
                 meta_data = val.split(b" ")
                 n_bytes = int(meta_data[-1])
-                subject = meta_data[0]
+                subject = meta_data[0].decode()
                 if len(meta_data) == 4:
-                    reply_to = meta_data[2]
+                    reply_to = meta_data[2].decode()
                 elif len(meta_data) == 3:
                     reply_to = None
                 else:
@@ -308,7 +308,7 @@ class NatsProtocol(Protocol):
         Send ping.
         """
         op = b"PING\r\n"
-        self.transport.write(op.encode('utf8'))
+        self.transport.write(op)
         self.log.info("PING")
         self.pout += 1
 
@@ -318,7 +318,7 @@ class NatsProtocol(Protocol):
         """
         op = b"PONG\r\n"
         self.log.info("PONG")
-        self.transport.write(op.encode('utf8'))
+        self.transport.write(op)
 
     def request(self, sid, subject):
         """
