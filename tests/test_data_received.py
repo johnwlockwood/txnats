@@ -60,18 +60,18 @@ class TestDataReceived(BaseTest):
                         subject=None, reply_to=None, payload=None):
             self.msg_handler_called = True
             self.assertEqual(nats_protocol, self.nats_protocol)
-            self.assertEqual(sid, b"1")
-            self.assertEqual(subject, b"mysubject")
-            self.assertEqual(reply_to, b"inbox1")
+            self.assertEqual(sid, "1")
+            self.assertEqual(subject, "mysubject")
+            self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
         self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
-            "MSG mysubject 1 inbox1 7\r\nh\r\n"
+            b"MSG mysubject 1 inbox1 7\r\nh\r\n"
         )
         self.nats_protocol.dataReceived(
-            "ello\r\n"
+            b"ello\r\n"
         )
         self.assertTrue(self.msg_handler_called)
 
@@ -82,13 +82,14 @@ class TestDataReceived(BaseTest):
         contains bytes that match the beginning of another command.
         """
         self.msg_handler_called = False
+
         def msg_handler(nats_protocol=None, sid=None,
                         subject=None, reply_to=None, payload=None):
             self.msg_handler_called = True
             self.assertEqual(nats_protocol, self.nats_protocol)
-            self.assertEqual(sid, b"1")
-            self.assertEqual(subject, b"mysubject")
-            self.assertEqual(reply_to, b"inbox1")
+            self.assertEqual(sid, "1")
+            self.assertEqual(subject, "mysubject")
+            self.assertEqual(reply_to, "inbox1")
             self.assertEqual(
                 payload, b"h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
 
@@ -98,7 +99,7 @@ class TestDataReceived(BaseTest):
             b"MSG mysubject 1 inbox1 41\r\nh\r\n"
         )
         self.nats_protocol.dataReceived(
-            "ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
+            b"ello\r\nMSG asubject 3 breply 6\r\nsausage\r\n"
         )
         self.assertTrue(self.msg_handler_called)
 
@@ -107,13 +108,14 @@ class TestDataReceived(BaseTest):
         Ensure a MSG command split within the first few bytes is handled.
         """
         self.msg_handler_called = False
+
         def msg_handler(nats_protocol=None, sid=None,
                         subject=None, reply_to=None, payload=None):
             self.msg_handler_called = True
             self.assertEqual(nats_protocol, self.nats_protocol)
-            self.assertEqual(sid, b"1")
-            self.assertEqual(subject, b"mysubject")
-            self.assertEqual(reply_to, b"inbox1")
+            self.assertEqual(sid, "1")
+            self.assertEqual(subject, "mysubject")
+            self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
         self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
@@ -135,14 +137,14 @@ class TestDataReceived(BaseTest):
         protocol split is processed normally.
         """
         self.nats_protocol.dataReceived(
-            "PI"
+            b"PI"
         )
         self.nats_protocol.dataReceived(
-            "NG\r\n"
+            b"NG\r\n"
         )
         self.assertEqual(self.transport.getvalue(), b"PONG\r\n")
         self.nats_protocol.dataReceived(
-            "PING\r\n"
+            b"PING\r\n"
         )
         self.assertEqual(self.transport.getvalue(), b"PONG\r\nPONG\r\n")
 
@@ -153,25 +155,25 @@ class TestDataReceived(BaseTest):
         parsed and saved and a CONNECT operation is sent.
 
         """
-        self.nats_protocol.dataReceived(
-            "INFO {}\r\n".format(
-                json.dumps(
-                    {u'auth_required': False,
-                        u'go': u'go1.5.2',
-                        u'host': u'0.0.0.0',
-                        u'max_payload': 1048576,
-                        u'port': 4222,
-                        u'server_id': u'16dd1049f122d8d3d148894074423d48',
-                        u'ssl_required': False,
-                        u'tls_required': False,
-                        u'tls_verify': False,
-                        u'version': u'0.7.2'}
-                )
+        info_data = "INFO {}\r\n".format(
+            json.dumps(
+                {u'auth_required': False,
+                    u'go': u'go1.5.2',
+                    u'host': u'0.0.0.0',
+                    u'max_payload': 1048576,
+                    u'port': 4222,
+                    u'server_id': u'16dd1049f122d8d3d148894074423d48',
+                    u'ssl_required': False,
+                    u'tls_required': False,
+                    u'tls_verify': False,
+                    u'version': u'0.7.2'}
             )
         )
+        info_data = info_data.encode()
+        self.nats_protocol.dataReceived(info_data)
         command = self.transport.getvalue()[:8]
         self.assertEqual(command, b'CONNECT ')
-        client_info = json.loads(self.transport.getvalue()[8:])
+        client_info = json.loads(self.transport.getvalue()[8:].decode())
         self.assertEqual(
             client_info,
             {
