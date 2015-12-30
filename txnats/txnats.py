@@ -131,7 +131,7 @@ class NatsProtocol(Protocol):
             self.log.info("Connection Lost {reason}", reason=reason)
             self.reactor.callLater(0, self.reconnect)
             if self.on_connection_lost:
-                self.reactor.callLater(0, self.on_connection_lost)
+                self.reactor.callLater(0, self.on_connection_lost, self)
         # TODO: add reconnect
         # TODO: add resubscribe
 

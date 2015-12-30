@@ -40,22 +40,31 @@ class BaseTest(unittest.TestCase):
 
 class TestPartitionTolerance(BaseTest):
 
-    @patch("txnats.io.NatsProtocol.reconnect")
-    @patch("txnats.io.NatsProtocol.transport")
-    def test_reconnect(self, mock_transport, mock_reconnect):
+    def test_reconnect(self):
         """
         Ensure reconnect is called upon connection lost.
         """
+        def msg_handler(*args, **kwargs):
+            pass
 
-        mock_msg_handler = Mock()
+        self.call_count = 0
+
+        def reconnect(nats_protocol):
+            self.call_count += 1
+            self.assertIsInstance(nats_protocol, txnats.io.NatsProtocol)
+
+        nats_protocol = txnats.io.NatsProtocol(
+            own_reactor=self.reactor, on_connection_lost=reconnect)
+        nats_protocol.transport = BytesIO()
+
         self.nats_protocol.status = txnats.io.CONNECTED
         self.nats_protocol.sub('inbox', "1", queue_group="a-queue-group",
-                               on_msg=mock_msg_handler)
-        connectionLostFailure=failure.Failure(error.ConnectionLost())
-        self.nats_protocol.connectionLost(reason=connectionLostFailure)
-        self.reactor.advance(1)
-        self.assertEqual(self.nats_protocol.status, txnats.io.DISCONNECTED)
-        self.assertEqual(mock_reconnect.call_count, 1)
+                               on_msg=msg_handler)
+        connectionLostFailure = failure.Failure(error.ConnectionLost())
+        nats_protocol.connectionLost(reason=connectionLostFailure)
+        self.reactor.advance(2)
+        self.assertEqual(nats_protocol.status, txnats.io.DISCONNECTED)
+        self.assertEqual(self.call_count, 1)
 
 
 class TestDataReceived(BaseTest):
