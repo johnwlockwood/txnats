@@ -27,10 +27,11 @@ def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
     """
     stdout.write("sid: {}, subject: {}, reply-to: {}\r\n".format(
         sid, subject, reply_to))
-    stdout.write(payload)
+    stdout.write(payload.decode())
     stdout.write("\r\n*")
     if reply_to:
-        nats_protocol.pub(reply_to, "Roger, from {}!".format(responder_id))
+        nats_protocol.pub(
+            reply_to, "Roger, from {}!".format(responder_id).encode())
 
 
 def listen(nats_protocol):

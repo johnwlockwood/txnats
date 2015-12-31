@@ -76,7 +76,7 @@ try:
 except:
     license_info = 'The MIT License (MIT)'
 
-description = "@nats.io client protocol"
+description = "NATS messaging system client using Twisted #microservices"
 long_description = description
 if os.path.exists('.generated_README.rst'):
     long_description = open('.generated_README.rst').read()
@@ -102,6 +102,7 @@ setup_args = dict(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
