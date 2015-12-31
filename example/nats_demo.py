@@ -19,14 +19,14 @@ from twisted.internet.endpoints import connectProtocol
 
 def my_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write("yay\r\n")
-    stdout.write(payload)
+    stdout.write(payload.decode())
     stdout.write("\r\n*")
 
 
 def sid_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write("sid: {}, subject: {}, reply-to: {}\r\n".format(
         sid, subject, reply_to))
-    stdout.write(payload)
+    stdout.write(payload.decode())
     stdout.write("\r\n*")
 
 
@@ -46,33 +46,33 @@ def somePubSubbing(nats_protocol):
     # sid_on_msg callback.
     nats_protocol.sub("smile.*", 3, on_msg=sid_on_msg)
     nats_protocol.unsub(1, 4)
-    nats_protocol.pub("happy", "Hello Subber")
-    nats_protocol.pub("happy", "How")
-    nats_protocol.pub("lucky", "Spin To")
-    nats_protocol.pub("happy", "Are")
-    nats_protocol.pub("happy", "You?")
+    nats_protocol.pub("happy", "Hello Subber".encode())
+    nats_protocol.pub("happy", "How".encode())
+    nats_protocol.pub("lucky", "Spin To".encode())
+    nats_protocol.pub("happy", "Are".encode())
+    nats_protocol.pub("happy", "You?".encode())
 
-    nats_protocol.pub("smile.sfas", "WHat!")
+    nats_protocol.pub("smile.sfas", "WHat!".encode())
 
-    nats_protocol.pub("happy", "Anyone listening?")
+    nats_protocol.pub("happy", "Anyone listening?".encode())
 
-    nats_protocol.pub("lucky", "WIN!!!", "smile12")
+    nats_protocol.pub("lucky", "WIN!!!".encode(), "smile12")
 
     # After some time, publish some more messages
     d = task.deferLater(nats_protocol.reactor, 0.5,
                         nats_protocol.pub, "lucky",
-                        "heya", "gimmie")
+                        "heya".encode(), "gimmie")
     yield d
 
     # This will publish a message four seconds after the one above because of
     # this function being decorated with inlineCallbacks.
     yield task.deferLater(nats_protocol.reactor,
                           4, nats_protocol.pub, "lucky",
-                          "and another thing", "gimmie")
+                          "and another thing".encode(), "gimmie")
 
     nats_protocol.sub("inbox123", 4, on_msg=sid_on_msg)
     nats_protocol.unsub(4, 1)
-    nats_protocol.pub("ssshh", "Any one there?!!!", "inbox123")
+    nats_protocol.pub("ssshh", b"Any one there?!!!", "inbox123")
 
     # Lose the connection one second after the "and another thing" msg.
     yield task.deferLater(nats_protocol.reactor,

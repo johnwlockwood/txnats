@@ -30,7 +30,8 @@ def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write(payload.decode())
     stdout.write("\r\n*")
     if reply_to:
-        nats_protocol.pub(reply_to, "Roger, from {}!".format(responder_id))
+        nats_protocol.pub(
+            reply_to, "Roger, from {}!".format(responder_id).encode())
 
 
 def listen(nats_protocol):
