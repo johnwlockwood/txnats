@@ -10,7 +10,7 @@ How do I get my services to talk to each other with out registering each
 one in a directory?
 
 How do I scale a back end service and allow front end services to use all of
-them quickly.
+them quickly?
 
 How do I have a fast, scalable, resilient communication service with out a lot
 of headaches?
