@@ -3,7 +3,7 @@ Description=Simple Nats responder
 
 [Service]
 ExecStart=/usr/local/pypy-4.0.1-linux-armhf-raspbian/bin/pypy \
-    /home/pi/projects/txnats/example/queue_respond.py > /app-logs/myscript.log 2>&1
+    /home/pi/projects/txnats/example/queue_respond.py
 #    --version > /app-logs/myscript.log 2>&1
 
 # > /app-logs/myscript.log 2>&1

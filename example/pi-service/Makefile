@@ -27,11 +27,29 @@ start-services:
 	sudo systemctl start nats.respond.3
 	sudo systemctl start nats.respond.4
 
+restart-services:
+	sudo systemctl restart nats.respond.1
+	sudo systemctl restart nats.respond.2
+	sudo systemctl restart nats.respond.3
+	sudo systemctl restart nats.respond.4
+
+stop-services:
+	sudo systemctl stop nats.respond.1
+	sudo systemctl stop nats.respond.2
+	sudo systemctl stop nats.respond.3
+	sudo systemctl stop nats.respond.4
+
 enable-services:
 	sudo systemctl enable nats.respond.1.service
 	sudo systemctl enable nats.respond.2.service
 	sudo systemctl enable nats.respond.3.service
 	sudo systemctl enable nats.respond.4.service
+
+disable-services:
+	sudo systemctl disable nats.respond.1.service
+	sudo systemctl disable nats.respond.2.service
+	sudo systemctl disable nats.respond.3.service
+	sudo systemctl disable nats.respond.4.service
 
 status-services:
 	sudo systemctl status nats.respond.1.service
