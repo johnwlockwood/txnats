@@ -17,7 +17,9 @@ Prerequisites:
 Steps:
  - download pypy for Rasbian: https://bitbucket.org/pypy/pypy/downloads/pypy-4.0.1-linux-armhf-raspbian.tar.bz2
  - bunzip2 it and put it in /home/pi/ on the pi.
- - copy this Makefile and nats.respond.1.service to /home/pi/
+ - Extract the tar: `tar -xvf  pypy-4.0.1-linux-armhf-raspbian.tar`
+ - clone this repo to /home/pi/projects/ (hardcoded in the `.service` file)
+ - copy this Makefile and nats.respond.1.service to /home/pi/ as that is where I wrote it and hardcoded some paths.  TODO: Use environmental variables or maybe do this [Chef](http://everydaytinker.com/raspberry-pi/installing-chef-client-on-a-raspberry-pi-2-model-b/)
  - ssh into the pi
  - download `get-pip.py` to /home/pi/
     - `curl -o get-pip2.py https://bootstrap.pypa.io/get-pip.py`
