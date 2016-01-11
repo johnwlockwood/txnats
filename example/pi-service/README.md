@@ -27,6 +27,10 @@ Steps:
  - `make pypy-get-pip`
  - `make install-txnats`
 
+Optionally link pypy to your home bin directory, so you can run pypy without entering the whole path.
+ - If it doesn't exist add a bin directory to your home directory. `mkdir ~/bin`
+ - `make link-pypy`
+
 Setup and start the services
 This will make four copies of the respond service.
  - `make add-services`

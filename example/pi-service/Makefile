@@ -6,13 +6,15 @@ install-pypy:
 	sudo mv pypy-4.0.1-linux-armhf-raspbian /usr/local/
 	sudo chmod -R ugo+x /usr/local/pypy-4.0.1-linux-armhf-raspbian 
 	sudo chown -R root:staff /usr/local/pypy-4.0.1-linux-armhf-raspbian 
-	sudo ln -s /usr/local/pypy-4.0.1-linux-armhf-raspbian/bin/pypy ~/bin/ 
-	
+
 pypy-get-pip:
 	sudo /usr/local/pypy-4.0.1-linux-armhf-raspbian/bin/pypy ./get-pip.py
 
 install-txnats:
 	sudo /usr/local/pypy-4.0.1-linux-armhf-raspbian/bin/pip install txnats
+
+link-pypy:
+	sudo ln -s /usr/local/pypy-4.0.1-linux-armhf-raspbian/bin/pypy ~/bin/ 
 
 add-services:
 	sudo cp nats.respond.1.service /etc/systemd/system/nats.respond.1.service
