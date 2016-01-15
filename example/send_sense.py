@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from sys import stdout
+import argparse
 import random
 import string
 
@@ -23,6 +24,17 @@ from twisted.internet.endpoints import connectProtocol
 client_id = ''.join(
     random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--host", default="demo.nats.io",
+                    help="IP of NATS server")
+parser.add_argument("--port", default=4222,
+                    help="port of NATS server")
+
+parser.add_argument('messages', metavar='M', type=str, nargs='+',
+                    help='Messages to send')
+
+pargs = parser.parse_args()
+
 
 def sid_on_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write("sid: {}, subject: {}, reply-to: {}\r\n".format(
@@ -32,6 +44,7 @@ def sid_on_msg(nats_protocol, sid, subject, reply_to, payload):
 
 
 def sleep(own_reactor, seconds):
+    """A sleep function that won't block the event loop."""
     d = defer.Deferred()
     own_reactor.callLater(seconds, d.callback, seconds)
     return d
@@ -45,16 +58,18 @@ def someRequests(nats_protocol):
     """
     client_inbox = "inbox_{}".format(client_id)
     nats_protocol.sub(client_inbox, 1, on_msg=sid_on_msg)
-    for x in range(4):
-        nats_protocol.pub("senseshow",
-                          "{}".format(x).encode(),
-                          client_inbox)
-        log.info("sent: {}".format(x))
-        yield sleep(nats_protocol.reactor, 0.01)
+    if pargs.messages:
+        for x in pargs.messages:
+            nats_protocol.pub("senseshow",
+                              "{}".format(x).encode(),
+                              client_inbox)
+            log.info("sent: {}".format(x))
+            yield sleep(nats_protocol.reactor, 0.01)
 
-    # Lose the connection one second after the "and another thing" msg.
-    yield task.deferLater(nats_protocol.reactor,
-                          10, nats_protocol.transport.loseConnection)
+    # Wait for 10 seconds, then lose the connection.
+    # TODO: A more sophisticated thing would be to track the responses.
+    yield task.deferLater(nats_protocol.reactor, 10,
+                          nats_protocol.transport.loseConnection)
 
     # stop the reactor(the event loop) one second after that.
     yield task.deferLater(nats_protocol.reactor, 1, reactor.stop)
@@ -62,11 +77,7 @@ def someRequests(nats_protocol):
 
 def main(reactor):
 
-    host = "demo.nats.io"
-    host = "localhost"
-    port = 4222
-
-    point = TCP4ClientEndpoint(reactor, host, port)
+    point = TCP4ClientEndpoint(reactor, pargs.host, pargs.port)
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
         on_connect=someRequests)

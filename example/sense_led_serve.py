@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from sys import stdout
+import argparse
 import random
 import string
-from sense_hat import SenseHat
 
 import txnats
 
@@ -18,16 +17,36 @@ from twisted.internet import defer
 from twisted.internet.threads import deferToThread
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
+import socket
 
 responder_id = ''.join(
     random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
-sem = defer.DeferredSemaphore(1)
-sense = SenseHat()
+parser = argparse.ArgumentParser()
+parser.add_argument("--host", default="demo.nats.io",
+                    help="IP of NATS server")
+parser.add_argument("--port", default=4222,
+                    help="port of NATS server")
+
+parser.add_argument("--name", default="{} {}".format(responder_id,
+                                                     socket.gethostname()),
+                    help="Name of this client or device")
+
+pargs = parser.parse_args()
+
+led_grid_semaphore = defer.DeferredSemaphore(1)
 
 
 @defer.inlineCallbacks
 def show_msg(message):
+    """
+    Call the sense Hat's show message function in a thread
+    because otherwise it would block the event loop.
+
+    :param message: Message to display on the LED grid.
+    """
+    from sense_hat import SenseHat
+    sense = SenseHat()
     yield deferToThread(
         sense.show_message, text_string=message,
         scroll_speed=0.10, text_colour=(50, 100, 40))
@@ -36,12 +55,15 @@ def show_msg(message):
 @defer.inlineCallbacks
 def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
     """
-    Write the message payload to standard out, and if
-    there is a reply_to, publish a message to it.
+    Run show_msg with the semaphore that allows only one
+    message to be shown at a time.
+
     """
-    yield sem.run(show_msg, payload.decode())
+    yield led_grid_semaphore.run(show_msg, payload.decode())
     if reply_to:
-        nats_protocol.pub(reply_to, "Roger, from {}!".format(responder_id))
+        nats_protocol.pub(
+            reply_to,
+            "Message diplayed by {}!".format(pargs.name).encode())
 
 
 def listen(nats_protocol):
@@ -73,12 +95,7 @@ def create_client(reactor, host, port):
 
 
 def main(reactor):
-
-    host = "demo.nats.io"
-    host = "192.168.86.160"
-    port = 4222
-
-    create_client(reactor, host, port)
+    create_client(reactor, pargs.host, pargs.port)
 
 if __name__ == '__main__':
     globalLogPublisher.addObserver(simpleObserver)
