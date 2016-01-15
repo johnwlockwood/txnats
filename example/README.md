@@ -6,5 +6,5 @@ Run `send_sense.py` from another computer to send messages to be displayed on th
 
 This is an example of controlling devices over the network.
 
-Recommend to downloading the gnatsd server from [nats.io](http://nats.io) and running it and then run these scripts with `--host` set to the address of the computer running it.
+I recommend downloading the `gnatsd` server from [nats.io](http://nats.io) and running it and then run these scripts with `--host` set to the address of the computer running it.
 
