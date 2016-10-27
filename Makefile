@@ -63,4 +63,5 @@ register: distclean build update-readme
 release: distclean update-readme
 	python setup.py sdist upload -r pypi
 	python setup.py bdist_egg upload -r pypi
+	python3 setup.py bdist_egg upload -r pypi
 	python setup.py bdist_wininst upload -r pypi

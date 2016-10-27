@@ -1,6 +1,24 @@
-# [nats.io](http://nats.io) client for the Twisted matrix
+# [NATS.io](http://nats.io) messaging system client for the Twisted matrix
 
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
+
+[NATS Documentation](http://nats.io/documentation/)
+
+## HOW TO microservice communication.
+
+How do I get my services to talk to each other with out registering each
+one in a directory?
+
+How do I scale a back end service and allow front end services to use all of
+them quickly?
+
+How do I have a fast, scalable, resilient communication service with out a lot
+of headaches?
+
+A good answer to all of these is to use NATS.
+NATS is a masterpiece protocol designed with the cloud in mind. HTTP 
+was good, but it was designed for servers sending single resources to
+clients on an uncontrolled network.
 
 ## Install dependencies
 I suggest creating a virtualenv.

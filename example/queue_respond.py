@@ -26,7 +26,7 @@ def respond_on_msg(nats_protocol, sid, subject, reply_to, payload):
     Write the message payload to standard out, and if
     there is a reply_to, publish a message to it.
     """
-    stdout.write(payload)
+    stdout.write(payload.decode())
     stdout.write("\r\n")
     if reply_to:
         nats_protocol.pub(reply_to, "Roger, from {}!".format(responder_id))
@@ -60,10 +60,17 @@ def create_client(reactor, host, port):
     # connectProtocol knows how to connected to the endpoint.
     connecting = connectProtocol(point, nats_protocol)
     # Log if there is an error making the connection.
-    connecting.addErrback(lambda np: log.info("{p}", p=np))
+    connecting.addErrback(on_fail_to_connect, nats_protocol)
     # Log what is returned by the connectProtocol.
     connecting.addCallback(lambda np: log.info("{p}", p=np))
     return connecting
+
+
+def on_fail_to_connect(error, nats_protocol):
+    """Exit on failure, the process manager
+    should try restarting, (systemd)"""
+    log.error("{error}", error=error)
+    nats_protocol.reactor.stop()
 
 
 def main(reactor):
