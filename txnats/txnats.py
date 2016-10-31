@@ -17,6 +17,18 @@ from . import _meta
 LANG = "py.twisted"
 CLIENT_NAME = "txnats"
 
+# Event Types
+RECEIVED_PING = "RECEIVED_PING"
+RECEIVED_PONG = "RECEIVED_PONG"
+RECEIVED_MSG = "RECEIVED_MSG"
+RECEIVED_INFO = "RECEIVED_INFO"
+UNSUB = "UNSUB"
+SUB = "SUB"
+UNHANDLED_COMMAND = "UNHANDLED_COMMAND"
+CONNECTION_LOST = "CONNECTION_LOST"
+CONNECT = "CONNECT"
+DISCONNECT = "DISCONNECT"
+
 
 ServerInfo = namedtuple(
     "ServerInfo",
@@ -48,8 +60,7 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None, on_connect=None,
-                 on_connection_lost=None):
+                 password="", on_msg=None, on_connect=None, event_subscribers=None):
         """
 
         @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
@@ -72,9 +83,6 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         @param on_connect: Callable that takes this instance of NatsProtocol
          which will be called upon the first successful connection.
-        @param on_connection_lost: Callable that takes this instance of
-         NatsProtocol which will be called upon the an unclean transport
-         disconnect, error.ConnectionLost.
         """
         self.reactor = own_reactor if own_reactor else reactor
         self.status = DISCONNECTED
@@ -102,17 +110,16 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
-        if on_connection_lost:
-            self.on_connection_lost = on_connection_lost
-        else:
-            self.on_connection_lost = None
         self.sids = {}
+        self.unsubs = {}
+        self.event_subscribers = event_subscribers if event_subscribers is not None else []
 
-    def reconnect(self):
-        pass
-
-    def resubscribe(self):
-        pass
+    def dispatch(self, event):
+        """Redux
+        """
+        for event_subscriber in self.event_subscribers:
+            event_subscriber(event)
+        return
 
     def connectionLost(self, reason=connectionDone):
         """Called when the connection is shut down.
@@ -128,12 +135,9 @@ class NatsProtocol(Protocol):
         self.status = DISCONNECTED
         self.remaining_bytes = b''
         if reason.type == error.ConnectionLost:
-            self.log.info("Connection Lost {reason}", reason=reason)
-            self.reactor.callLater(0, self.reconnect)
-            if self.on_connection_lost:
-                self.reactor.callLater(0, self.on_connection_lost, self)
-        # TODO: add reconnect
-        # TODO: add resubscribe
+            self.dispatch({"type": CONNECTION_LOST, "protocol": self, "reason": reason})
+        else:  
+            self.dispatch({"type": DISCONNECT, "protocol": self, "reason": reason})
 
     def dataReceived(self, data):
         """
@@ -191,6 +195,7 @@ class NatsProtocol(Protocol):
 
                 if sid in self.sids:
                     on_msg = self.sids[sid]
+
                 else:
                     on_msg = self.on_msg
 
@@ -207,13 +212,32 @@ class NatsProtocol(Protocol):
                     stdout.write(val.decode())
                     stdout.write(payload.decode())
 
+                self.dispatch({
+                    "type": RECEIVED_MSG, 
+                    "sid": sid, 
+                    "protocol": self, 
+                    "subject": subject, 
+                    "payload": payload,
+                    "reply_to": reply_to,
+                    })
+
+                if sid in self.unsubs:
+                    self.unsubs[sid] -= 1
+                    if self.unsubs[sid] == 0:
+                        del self.unsubs[sid]
+                        self.dispatch({
+                            "type": UNSUB, 
+                            "protocol": self, 
+                            "sid": sid})
+
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
                     self.remaining_bytes += (command + val + payload
                                              + payload_post)
                     break
             elif command == b"PING":
-                self.log.info("got PING")
+                self.dispatch({
+                    "type": RECEIVED_PING, "protocol": self})
                 self.pong()
                 val = data_buf.readline()
                 if val != b'\r\n':
@@ -221,7 +245,8 @@ class NatsProtocol(Protocol):
                     break
             elif command == b"PONG":
                 self.pout -= 1
-                self.log.info("got PONG")
+                self.dispatch({
+                    "type": RECEIVED_PONG, "protocol": self})
                 val = data_buf.readline()
                 if val != b'\r\n':
                     self.remaining_bytes += command + val
@@ -233,19 +258,27 @@ class NatsProtocol(Protocol):
                     break
                 settings = json.loads(val.decode('utf8'))
                 self.server_settings = ServerInfo(**settings)
-                self.log.info("{server_info}", server_info=settings)
+                self.dispatch({
+                    "type": RECEIVED_INFO, 
+                    "protocol": self, 
+                    "server_info": settings})
                 self.status = CONNECTED
+                self.pout = 0
+                self.sids = {}
+                self.unsubs = {}
                 self.connect()
                 if self.on_connect_d:
                     self.on_connect_d.callback(self)
                     self.on_connect_d = None
             else:
-                self.log.info(b"Not handled command is: {command!r}",
-                              command=command)
+                self.dispatch({
+                    "type": UNHANDLED_COMMAND, 
+                    "protocol": self, 
+                    "command": command
+                    })
                 val = data_buf.read()
                 self.remaining_bytes += command + val
             if not data_buf.peek(1):
-                self.log.debug("emptied data")
                 break
 
     def connect(self):
@@ -255,8 +288,11 @@ class NatsProtocol(Protocol):
         payload = 'CONNECT {}\r\n'.format(json.dumps(
             self.client_info, separators=(',', ':')))
 
-        self.log.info(b'CONNECT {client_info}', client_info=self.client_info)
         self.transport.write(payload.encode())
+        self.dispatch({
+            "type": CONNECT,
+            "protocol": self,
+            "client_info": self.client_info})
 
     def pub(self, subject,  payload, reply_to=""):
         """
@@ -293,6 +329,12 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         """
         self.sids["{}".format(sid)] = on_msg
+        self.dispatch({
+            "type": SUB, 
+            "protocol": self,
+            "sid": sid, 
+            "queue_group": queue_group, 
+            "on_msg": on_msg})
 
         queue_group_part = ""
         if queue_group:
@@ -312,11 +354,14 @@ class NatsProtocol(Protocol):
         @type sid: int
         @param max_msgs: Optional number of messages to wait for before
          automatically unsubscribing.
-        @type sid: int
+        @type max_msgs: int
         """
         max_msgs_part = ""
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
+            self.unsubs[sid] = max_msgs
+        else:
+            self.dispatch({"type": UNSUB, "protocol": self, "sid": sid})
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
@@ -327,7 +372,6 @@ class NatsProtocol(Protocol):
         """
         op = b"PING\r\n"
         self.transport.write(op)
-        self.log.info("PING")
         self.pout += 1
 
     def pong(self):
@@ -335,7 +379,6 @@ class NatsProtocol(Protocol):
         Send pong.
         """
         op = b"PONG\r\n"
-        self.log.info("PONG")
         self.transport.write(op)
 
     def request(self, sid, subject):
@@ -348,5 +391,3 @@ class NatsProtocol(Protocol):
         Do auto unsubscribe for one message.
         """
         raise NotImplementedError()
-
-

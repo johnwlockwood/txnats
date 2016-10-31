@@ -27,8 +27,16 @@ class TestPartitionTolerance(BaseTest):
             self.call_count += 1
             self.assertIsInstance(nats_protocol, txnats.io.NatsProtocol)
 
+        def event_subscriber(event):
+            if event["type"] == txnats.io.CONNECTION_LOST:
+                print "connection lost", event["reason"]
+                reconnect(event["protocol"])
+            elif event["type"] == txnats.io.DISCONNECT:
+                print "Clean disconnect", event["reason"]
+
         nats_protocol = txnats.io.NatsProtocol(
-            own_reactor=self.reactor, on_connection_lost=reconnect)
+            own_reactor=self.reactor, 
+            event_subscribers=[event_subscriber])
         nats_protocol.transport = BytesIO()
 
         self.nats_protocol.status = txnats.io.CONNECTED
