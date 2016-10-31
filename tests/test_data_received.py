@@ -29,10 +29,7 @@ class TestPartitionTolerance(BaseTest):
 
         def event_subscriber(event):
             if event["type"] == txnats.io.CONNECTION_LOST:
-                print "connection lost", event["reason"]
                 reconnect(event["protocol"])
-            elif event["type"] == txnats.io.DISCONNECT:
-                print "Clean disconnect", event["reason"]
 
         nats_protocol = txnats.io.NatsProtocol(
             own_reactor=self.reactor, 
