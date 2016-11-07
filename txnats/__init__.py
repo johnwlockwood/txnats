@@ -6,8 +6,10 @@ __version_info__ = _meta.version_info
 
 from . import txnats as io
 from .txnats import NatsProtocol
+from .backoff import Backoff
 
 __all__ = [
     'io',
-    'NatsProtocol'
+    'NatsProtocol',
+    'Backoff'
 ]
