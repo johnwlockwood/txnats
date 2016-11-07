@@ -17,7 +17,7 @@ class ReceivedPong(object):
 
 @attr.s
 class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of(int))
+    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     payload = attr.ib(default=None,
@@ -39,13 +39,13 @@ class ReceivedInfo(object):
 
 @attr.s
 class Unsub(object):
-    sid = attr.ib(validator=attr.validators.instance_of(int))
+    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
 @attr.s
-class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of(int))
+class Sub(object):
+    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     queue_group = attr.ib(default=None, 
@@ -54,7 +54,6 @@ class ReceivedMsg(object):
         )
     )
     on_msg = attr.ib(default=None)
-
 
 @attr.s
 class UnhandledCommand(object):

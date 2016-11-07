@@ -19,4 +19,4 @@ class IsNatsProtocolTest(unittest.TestCase):
         actions.ReceivedPong(txnats.io.NatsProtocol())
 
     def test_unsub(self):
-        actions.Unsub(4, txnats.io.NatsProtocol())
+        actions.Unsub("4", txnats.io.NatsProtocol())

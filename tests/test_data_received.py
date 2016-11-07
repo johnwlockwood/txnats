@@ -9,6 +9,7 @@ from twisted.python import failure
 from twisted.internet import error
 
 import txnats
+from txnats import actions
 
 from tests.base import BaseTest
 
@@ -28,8 +29,8 @@ class TestPartitionTolerance(BaseTest):
             self.assertIsInstance(nats_protocol, txnats.io.NatsProtocol)
 
         def event_subscriber(event):
-            if event["type"] == txnats.io.CONNECTION_LOST:
-                reconnect(event["protocol"])
+            if isinstance(event, actions.ConnectionLost):
+                reconnect(event.protocol)
 
         nats_protocol = txnats.io.NatsProtocol(
             own_reactor=self.reactor, 
@@ -76,7 +77,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MSG mysubject 1 inbox1 7\r\nh\r\n"
@@ -104,7 +105,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(
                 payload, b"h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MSG mysubject 1 inbox1 41\r\nh\r\n"
@@ -129,7 +130,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MS"
