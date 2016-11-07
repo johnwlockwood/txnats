@@ -202,7 +202,7 @@ class TestDataReceived(BaseTest):
 
         self.assertEqual(
             self.nats_protocol.server_settings,
-            txnats.io.ServerInfo(
+            txnats.config_state.ServerInfo(
                 auth_required=False,
                 go=u'go1.5.2',
                 host=u'0.0.0.0',
