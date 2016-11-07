@@ -1,4 +1,6 @@
+from __future__ import division, absolute_import
 from sys import stdout
+import attr
 import json
 from io import BytesIO
 from io import BufferedReader
@@ -13,6 +15,7 @@ from twisted.internet.protocol import connectionDone
 from twisted.internet import error
 
 from . import _meta
+from .config_state import ServerInfo
 
 LANG = "py.twisted"
 CLIENT_NAME = "txnats"
@@ -28,22 +31,6 @@ UNHANDLED_COMMAND = "UNHANDLED_COMMAND"
 CONNECTION_LOST = "CONNECTION_LOST"
 CONNECT = "CONNECT"
 DISCONNECT = "DISCONNECT"
-
-
-ServerInfo = namedtuple(
-    "ServerInfo",
-    (
-        "server_id",
-        "version",
-        "go",
-        "host",
-        "port",
-        "auth_required",
-        "ssl_required",
-        "tls_required",
-        "tls_verify",
-        "max_payload",
-    ))
 
 
 DISCONNECTED = 0
@@ -332,6 +319,7 @@ class NatsProtocol(Protocol):
         self.dispatch({
             "type": SUB, 
             "protocol": self,
+            "subject": subject,
             "sid": sid, 
             "queue_group": queue_group, 
             "on_msg": on_msg})
