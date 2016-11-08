@@ -133,7 +133,6 @@ func (nc *Conn) resendSubscriptions() {
             if event.protocol.ping_loop.running:
                 event.protocol.ping_loop.stop()
         elif isinstance(event, actions.ConnectionLost):
-            # MAYBE defer reconnecting with a backoff
             log.info("connection lost")
             if event.protocol.ping_loop.running:
                 log.info("stop pinging")
@@ -148,7 +147,6 @@ func (nc *Conn) resendSubscriptions() {
         point, 
         txnats.io.NatsProtocol(
             verbose=True, 
-            #on_connect=someRequests, 
             event_subscribers=[event_subscriber]), 
         backoff)
 
@@ -162,4 +160,3 @@ if __name__ == '__main__':
     globalLogPublisher.addObserver(simpleObserver)
     main(reactor)
     reactor.run()
-
