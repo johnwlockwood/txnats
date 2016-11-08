@@ -27,7 +27,7 @@ class ReceivedPong(object):
 
 @attr.s
 class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
+    sid = attr.ib(validator=attr.validators.instance_of((str,)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     payload = attr.ib(default=None,
@@ -35,7 +35,7 @@ class ReceivedMsg(object):
     )
     reply_to = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((bytes, str, unicode))
+            attr.validators.instance_of((bytes, str))
         )
     )
 
