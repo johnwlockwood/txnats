@@ -32,7 +32,7 @@ def create_client(reactor, host, port):
     point = TCP4ClientEndpoint(reactor, host, port)
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
-        on_connect=lambda np: np.sub("happy", 6, on_msg=on_happy_msg))
+        on_connect=lambda np: np.sub("happy", "6", on_msg=on_happy_msg))
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.

@@ -4,6 +4,7 @@
 from sys import stdout
 
 import txnats
+from txnats import actions
 
 from twisted.logger import globalLogPublisher
 from twisted.internet import protocol
@@ -80,20 +81,29 @@ func (nc *Conn) resendSubscriptions() {
     point = TCP4ClientEndpoint(reactor, host, port)
     backoff = txnats.Backoff()
     subscriptions = {
-        "6": txnats.config_state.SubscriptionArgs(subject="happy", sid=6, on_msg=on_happy_msg)
+        "6": txnats.config_state.SubscriptionArgs(subject="happy", sid="6", on_msg=on_happy_msg)
         }
+    pinger_keeper = []
 
     def retry(backoff, protocol):
+        log.info("retry {}".format(backoff.retries))
         re_protocol = txnats.io.NatsProtocol(
             verbose=False, event_subscribers=protocol.event_subscribers)
         re_protocol.unsubs = protocol.unsubs
-        while backoff.retries > 100:
-            connecting = connectProtocol(point, re_protocol)
+
+        #if backoff.retries < 100:
+        #    log.info("reconnecting")
+        #    connecting = connectProtocol(point, re_protocol)
+        #    connecting.addErrback(lambda np: log.info("{p}", p=np))
+        #    # Log what is returned by the connectProtocol.
+        #    connecting.addCallback(lambda np: log.info("{p}", p=np))
             
     def event_subscriber(event):
         if isinstance(event, actions.Connect):
-            for sub in subscriptions:
+            for sid, sub in subscriptions.items():
                 event.protocol.sub(sub.subject, sub.sid, sub.queue_group, sub.on_msg)
+            
+            event.protocol.ping_loop.start(10, now=True)
         elif isinstance(event, actions.Sub):
             subscriptions[event.sid]=txnats.config_state.SubscriptionArgs(
                 subject=event.subject,
@@ -102,15 +112,30 @@ func (nc *Conn) resendSubscriptions() {
                 on_msg=event.on_msg)
         elif isinstance(event, actions.Unsub):
             del subscriptions[event.sid]
+        elif isinstance(event, actions.ReceivedPing):
+            log.info("got Ping")
+        elif isinstance(event, actions.ReceivedPong):
+            log.info("got Pong")
+        elif isinstance(event, actions.SendPing):
+            log.info("Sending Ping")
+        elif isinstance(event, actions.SendPong):
+            log.info("Sending Pong")
+        elif isinstance(event, actions.Disconnect):
+            log.info("disconnect")
+            if event.protocol.ping_loop.running:
+                event.protocol.ping_loop.stop()
         elif isinstance(event, actions.ConnectionLost):
             # MAYBE defer reconnecting with a backoff
-            connecting = connectProtocol(
-                point, txnats.io.NatsProtocol(
-                    verbose=False, event_subscribers=event.protocol.event_subscribers))
-            # Log if there is an error making the connection.
-            connecting.addErrback(lambda np: retry(backoff, np))
-            # Log what is returned by the connectProtocol.
-            connecting.addCallback(lambda np: backoff.reset_delay(); log.info("{p}", p=np))
+            log.info("connection lost")
+            if event.protocol.ping_loop.running:
+                event.protocol.ping_loop.stop()
+            #connecting = connectProtocol(
+            #    point, txnats.io.NatsProtocol(
+            #        verbose=False, event_subscribers=event.protocol.event_subscribers))
+            ## Log if there is an error making the connection.
+            #connecting.addErrback(lambda np: retry(backoff, np))
+            ## Log what is returned by the connectProtocol.
+            #connecting.addCallback(lambda np: backoff.reset_delay())
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.

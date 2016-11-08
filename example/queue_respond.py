@@ -38,7 +38,7 @@ def listen(nats_protocol):
     """
     log.info("HELLO LISTEN")
 
-    nats_protocol.sub("a-queue", 1,
+    nats_protocol.sub("a-queue", "1",
                       queue_group="excelsior",
                       on_msg=respond_on_msg)
     pinger = LoopingCall(nats_protocol.ping)

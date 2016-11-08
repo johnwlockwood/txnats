@@ -40,7 +40,7 @@ def listen(nats_protocol):
     """
     log.info("HELLO LISTEN")
 
-    nats_protocol.sub("ssshh", 6, on_msg=respond_on_msg)
+    nats_protocol.sub("ssshh", '6', on_msg=respond_on_msg)
 
 
 def create_client(reactor, host, port):

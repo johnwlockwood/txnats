@@ -6,9 +6,19 @@ from .validators import is_instance_of_nats_protocol
 
 
 @attr.s
+class SendPing(object):
+    protocol = attr.ib(validator=is_instance_of_nats_protocol)
+
+
+@attr.s
 class ReceivedPing(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     
+
+@attr.s
+class SendPong(object):
+    protocol = attr.ib(validator=is_instance_of_nats_protocol)
+
 
 @attr.s
 class ReceivedPong(object):

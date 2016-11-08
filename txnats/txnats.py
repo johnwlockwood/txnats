@@ -10,6 +10,7 @@ from twisted.logger import Logger
 
 from twisted.internet import defer
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 from twisted.internet.protocol import Protocol
 from twisted.internet.protocol import connectionDone
 from twisted.internet import error
@@ -64,6 +65,7 @@ class NatsProtocol(Protocol):
         self.status = DISCONNECTED
         self.verbose = verbose
         # Set the number of PING sent out
+        self.ping_loop = LoopingCall(self.ping)
         self.pout = 0
         self.remaining_bytes = b''
 
@@ -93,6 +95,8 @@ class NatsProtocol(Protocol):
     def dispatch(self, event):
         """Redux
         """
+        if self.event_subscribers is None:
+            return
         for event_subscriber in self.event_subscribers:
             event_subscriber(event)
         return
@@ -335,6 +339,7 @@ class NatsProtocol(Protocol):
         op = b"PING\r\n"
         self.transport.write(op)
         self.pout += 1
+        self.dispatch(actions.SendPing(self))
 
     def pong(self):
         """
@@ -342,6 +347,7 @@ class NatsProtocol(Protocol):
         """
         op = b"PONG\r\n"
         self.transport.write(op)
+        self.dispatch(actions.SendPong(self))
 
     def request(self, sid, subject):
         """
