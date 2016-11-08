@@ -6,6 +6,7 @@ from sys import stdout
 import txnats
 from txnats import actions
 
+from twisted.internet import defer
 from twisted.logger import globalLogPublisher
 from twisted.internet import protocol
 from simple_log_observer import simpleObserver
@@ -15,6 +16,7 @@ log = Logger()
 from twisted.internet import reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.endpoints import connectProtocol
+from twisted.internet import error
 
 
 def on_happy_msg(nats_protocol, sid, subject, reply_to, payload):
@@ -23,6 +25,23 @@ def on_happy_msg(nats_protocol, sid, subject, reply_to, payload):
         sid, subject, reply_to))
     stdout.write(payload.decode())
     stdout.write("\r\n*")
+
+
+@defer.inlineCallbacks
+def resilient_connect(point, protocol, backoff):
+    while backoff.retries < 100:
+        log.info("tries {}".format(backoff.retries))
+        log.info("connecting..")
+        try:
+            yield connectProtocol(point, protocol)
+            backoff.reset_delay()
+            log.info(".connected")
+            defer.returnValue(None)
+        except (error.ConnectError, error.DNSLookupError):
+            delay = backoff.get_delay()
+            log.info("connection failed, sleep for {}".format(delay))
+            log.error()
+            yield txnats.io.sleep(protocol.reactor, delay)
 
 
 def create_client(reactor, host, port):
@@ -83,27 +102,16 @@ func (nc *Conn) resendSubscriptions() {
     subscriptions = {
         "6": txnats.config_state.SubscriptionArgs(subject="happy", sid="6", on_msg=on_happy_msg)
         }
-    pinger_keeper = []
-
-    def retry(backoff, protocol):
-        log.info("retry {}".format(backoff.retries))
-        re_protocol = txnats.io.NatsProtocol(
-            verbose=False, event_subscribers=protocol.event_subscribers)
-        re_protocol.unsubs = protocol.unsubs
-
-        #if backoff.retries < 100:
-        #    log.info("reconnecting")
-        #    connecting = connectProtocol(point, re_protocol)
-        #    connecting.addErrback(lambda np: log.info("{p}", p=np))
-        #    # Log what is returned by the connectProtocol.
-        #    connecting.addCallback(lambda np: log.info("{p}", p=np))
             
     def event_subscriber(event):
         if isinstance(event, actions.Connect):
+            log.info("got connect")
             for sid, sub in subscriptions.items():
-                event.protocol.sub(sub.subject, sub.sid, sub.queue_group, sub.on_msg)
+                event.protocol.sub(sub.subject, sid, sub.queue_group, sub.on_msg)
             
             event.protocol.ping_loop.start(10, now=True)
+        elif isinstance(event, actions.ReceivedInfo):
+            log.info("got info")
         elif isinstance(event, actions.Sub):
             subscriptions[event.sid]=txnats.config_state.SubscriptionArgs(
                 subject=event.subject,
@@ -128,24 +136,21 @@ func (nc *Conn) resendSubscriptions() {
             # MAYBE defer reconnecting with a backoff
             log.info("connection lost")
             if event.protocol.ping_loop.running:
+                log.info("stop pinging")
                 event.protocol.ping_loop.stop()
-            #connecting = connectProtocol(
-            #    point, txnats.io.NatsProtocol(
-            #        verbose=False, event_subscribers=event.protocol.event_subscribers))
-            ## Log if there is an error making the connection.
-            #connecting.addErrback(lambda np: retry(backoff, np))
-            ## Log what is returned by the connectProtocol.
-            #connecting.addCallback(lambda np: backoff.reset_delay())
+            resilient_connect(point, txnats.io.NatsProtocol(
+                verbose=False, 
+                event_subscribers=event.protocol.event_subscribers), backoff)
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.
-    connecting = connectProtocol(
-        point, txnats.io.NatsProtocol(
-            verbose=False, event_subscribers=[event_subscriber]))
-    # Log if there is an error making the connection.
-    connecting.addErrback(lambda np: log.info("{p}", p=np))
-    # Log what is returned by the connectProtocol.
-    connecting.addCallback(lambda np: log.info("{p}", p=np))
+    return resilient_connect(
+        point, 
+        txnats.io.NatsProtocol(
+            verbose=True, 
+            #on_connect=someRequests, 
+            event_subscribers=[event_subscriber]), 
+        backoff)
 
 
 def main(reactor):
