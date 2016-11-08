@@ -27,15 +27,15 @@ class ReceivedPong(object):
 
 @attr.s
 class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str,)))
+    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     payload = attr.ib(default=None,
-        validator=attr.validators.instance_of((bytes, str))
+        validator=attr.validators.instance_of((type(b""), type(u""), type("")))
     )
     reply_to = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((bytes, str))
+            attr.validators.instance_of((type(b""), type(u""), type("")))
         )
     )
 
@@ -49,18 +49,18 @@ class ReceivedInfo(object):
 
 @attr.s
 class Unsub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str,)))
+    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
 @attr.s
 class Sub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str,)))
+    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     queue_group = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((bytes, str))
+            attr.validators.instance_of((type(b""), type(u""), type("")))
         )
     )
     on_msg = attr.ib(default=None)
