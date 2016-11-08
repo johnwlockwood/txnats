@@ -49,18 +49,18 @@ class ReceivedInfo(object):
 
 @attr.s
 class Unsub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
+    sid = attr.ib(validator=attr.validators.instance_of((str,)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
 @attr.s
 class Sub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((str, unicode)))
+    sid = attr.ib(validator=attr.validators.instance_of((str,)))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     queue_group = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((bytes, str, unicode))
+            attr.validators.instance_of((bytes, str))
         )
     )
     on_msg = attr.ib(default=None)
