@@ -37,7 +37,7 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None, on_connect=None, event_subscribers=None):
+                 password="", on_msg=None, on_connect=None, event_subscribers=None, unsubs=None):
         """
 
         @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
@@ -82,14 +82,14 @@ class NatsProtocol(Protocol):
         }
         if on_msg:
             # Ensure the on_msg signature fits.
-            on_msg(nats_protocol=self, sid=0, subject=b"test-subject",
+            on_msg(nats_protocol=self, sid="0", subject=b"test-subject",
                    reply_to=b'', payload=b'hello, world')
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
         self.sids = {}
-        self.unsubs = {}
+        self.unsubs = unsubs if unsubs else {}
         self.event_subscribers = event_subscribers if event_subscribers is not None else []
 
     def dispatch(self, event):
@@ -237,7 +237,6 @@ class NatsProtocol(Protocol):
                 self.status = CONNECTED
                 self.pout = 0
                 self.sids = {}
-                self.unsubs = {}
                 self.connect()
                 if self.on_connect_d:
                     self.on_connect_d.callback(self)

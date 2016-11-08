@@ -28,6 +28,16 @@ def on_happy_msg(nats_protocol, sid, subject, reply_to, payload):
 
 
 @defer.inlineCallbacks
+def someRequests(nats_protocol):
+    """
+    Unsubscribe sid 6 once one message is received.
+    """
+    yield
+    nats_protocol.unsub("6", 1)
+    log.info("mark unsub")
+
+
+@defer.inlineCallbacks
 def resilient_connect(point, protocol, backoff):
     while backoff.retries < 100:
         log.info("tries {}".format(backoff.retries))
@@ -108,17 +118,22 @@ func (nc *Conn) resendSubscriptions() {
             log.info("got connect")
             for sid, sub in subscriptions.items():
                 event.protocol.sub(sub.subject, sid, sub.queue_group, sub.on_msg)
+                if sid in event.protocol.unsubs:
+                    log.info("unsubscribing sid: {} with max_msgs: {}".format(sid, event.protocol.unsubs[sid]))
+                    event.protocol.unsub(sid, max_msgs=event.protocol.unsubs[sid])
             
             event.protocol.ping_loop.start(10, now=True)
         elif isinstance(event, actions.ReceivedInfo):
             log.info("got info")
         elif isinstance(event, actions.Sub):
+            log.info("got sub sid: {}".format(event.sid))
             subscriptions[event.sid]=txnats.config_state.SubscriptionArgs(
                 subject=event.subject,
                 sid=event.sid,
                 queue_group=event.queue_group,
                 on_msg=event.on_msg)
         elif isinstance(event, actions.Unsub):
+            log.info("done subscription: {}".format(event.sid))
             del subscriptions[event.sid]
         elif isinstance(event, actions.ReceivedPing):
             log.info("got Ping")
@@ -137,9 +152,11 @@ func (nc *Conn) resendSubscriptions() {
             if event.protocol.ping_loop.running:
                 log.info("stop pinging")
                 event.protocol.ping_loop.stop()
-            resilient_connect(point, txnats.io.NatsProtocol(
-                verbose=False, 
-                event_subscribers=event.protocol.event_subscribers), backoff)
+            protocol = txnats.io.NatsProtocol(
+                verbose=True, 
+                event_subscribers=event.protocol.event_subscribers, 
+                unsubs=event.protocol.unsubs)
+            resilient_connect(point, protocol, backoff)
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.
@@ -147,7 +164,7 @@ func (nc *Conn) resendSubscriptions() {
         point, 
         txnats.io.NatsProtocol(
             verbose=True, 
-            event_subscribers=[event_subscriber]), 
+            event_subscribers=[event_subscriber], on_connect=someRequests), 
         backoff)
 
 
