@@ -34,7 +34,7 @@ class ReceivedMsg(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     payload = attr.ib(default=None,
-        validator=attr.validators.instance_of(SID_TYPES)
+        validator=attr.validators.instance_of((bytes, str))
     )
     reply_to = attr.ib(default=None, 
         validator=attr.validators.optional(
@@ -67,6 +67,7 @@ class RequestUnsub(object):
 
 @attr.s(slots=True)
 class RequestSub(object):
+    """Request a subscription"""
     sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
@@ -85,17 +86,20 @@ class UnhandledCommand(object):
 
 @attr.s(slots=True)
 class ConnectionLost(object):
+    "Lost connection"
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     reason = attr.ib(default=None)
 
 
 @attr.s(slots=True)
-class Disconnect(object):
+class Disconnected(object):
+    "Got disconnected"
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     reason = attr.ib(default=None)
 
 
 @attr.s(slots=True)
 class Connect(object):
+    """Sent CONNECT"""
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     client_info = attr.ib(default=None)

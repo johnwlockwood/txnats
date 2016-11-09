@@ -60,51 +60,6 @@ def create_client(reactor, host, port):
     which subscribes to a subject.
 
     Reconnect and resubscribe.
-
-
-Well, regardless, the logic would be the same
-
-[9:14]  
-Your subscription object should hold a notion of what the current autoUnsubscribe `max` is and what the current `delivered` is.
-
-[9:16]  
-During the reconnect sequence, once you’re reconnected, you should have a `resendSubscriptions` method/func that traverses the subscription map. For each subscription, you send a new `SUB` followed by `UNSUB <(max - delivered)>` (edited)
-
-[9:17]  
-(if `max - delivered > 0`, that is)
-
-[9:19]  
-Here’s the code from Go, which is the same logic we follow in Java, C#, and C:
-
-[9:19]  
- ```// resendSubscriptions will send our subscription state back to the
-// server. Used in reconnects
-func (nc *Conn) resendSubscriptions() {
-    for _, s := range nc.subs {
-        adjustedMax := uint64(0)
-        s.mu.Lock()
-        if s.max > 0 {
-            if s.delivered < s.max {
-                adjustedMax = s.max - s.delivered
-            }
-
-            // adjustedMax could be 0 here if the number of delivered msgs
-            // reached the max, if so unsubscribe.
-            if adjustedMax == 0 {
-                s.mu.Unlock()
-                nc.bw.WriteString(fmt.Sprintf(unsubProto, s.sid, _EMPTY_))
-                continue
-            }
-        }
-        s.mu.Unlock()
-
-        nc.bw.WriteString(fmt.Sprintf(subProto, s.Subject, s.Queue, s.sid))
-        if adjustedMax > 0 {
-            maxStr := strconv.Itoa(int(adjustedMax))
-            nc.bw.WriteString(fmt.Sprintf(unsubProto, s.sid, maxStr))
-        }
-    }
-}
     """
     log.info("Start client.")
     point = TCP4ClientEndpoint(reactor, host, port)
@@ -145,7 +100,7 @@ func (nc *Conn) resendSubscriptions() {
             log.info("Sending Ping")
         elif isinstance(event, actions.SendPong):
             log.info("Sending Pong")
-        elif isinstance(event, actions.Disconnect):
+        elif isinstance(event, actions.Disconnected):
             log.info("disconnect")
             if event.protocol.ping_loop.running:
                 event.protocol.ping_loop.stop()

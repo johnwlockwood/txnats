@@ -117,7 +117,7 @@ class NatsProtocol(Protocol):
         if reason.type == error.ConnectionLost:
             self.dispatch(actions.ConnectionLost(self, reason=reason))
         else:  
-            self.dispatch(actions.Disconnect(self, reason=reason))
+            self.dispatch(actions.Disconnected(self, reason=reason))
 
     def dataReceived(self, data):
         """
