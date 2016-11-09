@@ -5,85 +5,97 @@ from .config_state import ServerInfo
 from .validators import is_instance_of_nats_protocol
 
 
-@attr.s
+SID_TYPES = (type(b""), type(u""), type(""))
+
+
+@attr.s(slots=True)
 class SendPing(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
-@attr.s
+@attr.s(slots=True)
 class ReceivedPing(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     
 
-@attr.s
+@attr.s(slots=True)
 class SendPong(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
-@attr.s
+@attr.s(slots=True)
 class ReceivedPong(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
-@attr.s
+@attr.s(slots=True)
 class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
+    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     payload = attr.ib(default=None,
-        validator=attr.validators.instance_of((type(b""), type(u""), type("")))
+        validator=attr.validators.instance_of(SID_TYPES)
     )
     reply_to = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((type(b""), type(u""), type("")))
+            attr.validators.instance_of(SID_TYPES)
         )
     )
 
 
-@attr.s
+@attr.s(slots=True)
 class ReceivedInfo(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     server_info = attr.ib(default=None, 
         validator=attr.validators.instance_of(ServerInfo))
 
 
-@attr.s
-class Unsub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
+@attr.s(slots=True)
+class SubRemoved(object):
+    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
-@attr.s
-class Sub(object):
-    sid = attr.ib(validator=attr.validators.instance_of((type(b""), type(u""), type(""))))
+@attr.s(slots=True)
+class RequestUnsub(object):
+    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    protocol = attr.ib(validator=is_instance_of_nats_protocol)
+    max_msgs = attr.ib(
+        default=None, 
+        validator=attr.validators.optional(attr.validators.instance_of(int)))
+
+
+@attr.s(slots=True)
+class RequestSub(object):
+    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(default="")
     queue_group = attr.ib(default=None, 
         validator=attr.validators.optional(
-            attr.validators.instance_of((type(b""), type(u""), type("")))
+            attr.validators.instance_of(SID_TYPES)
         )
     )
     on_msg = attr.ib(default=None)
 
-@attr.s
+@attr.s(slots=True)
 class UnhandledCommand(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     command = attr.ib(default=None)
 
 
-@attr.s
+@attr.s(slots=True)
 class ConnectionLost(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     reason = attr.ib(default=None)
 
 
-@attr.s
+@attr.s(slots=True)
 class Disconnect(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     reason = attr.ib(default=None)
 
 
-@attr.s
+@attr.s(slots=True)
 class Connect(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     client_info = attr.ib(default=None)

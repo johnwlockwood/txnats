@@ -125,16 +125,18 @@ func (nc *Conn) resendSubscriptions() {
             event.protocol.ping_loop.start(10, now=True)
         elif isinstance(event, actions.ReceivedInfo):
             log.info("got info")
-        elif isinstance(event, actions.Sub):
+        elif isinstance(event, actions.RequestSub):
             log.info("got sub sid: {}".format(event.sid))
             subscriptions[event.sid]=txnats.config_state.SubscriptionArgs(
                 subject=event.subject,
                 sid=event.sid,
                 queue_group=event.queue_group,
                 on_msg=event.on_msg)
-        elif isinstance(event, actions.Unsub):
+        elif isinstance(event, actions.SubRemoved):
             log.info("done subscription: {}".format(event.sid))
             del subscriptions[event.sid]
+        elif isinstance(event, actions.RequestUnsub):
+            log.info("Unsub requested")
         elif isinstance(event, actions.ReceivedPing):
             log.info("got Ping")
         elif isinstance(event, actions.ReceivedPong):

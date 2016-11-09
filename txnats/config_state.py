@@ -2,7 +2,7 @@ from __future__ import division, absolute_import
 
 import attr
 
-@attr.s
+@attr.s(slots=True)
 class SubscriptionArgs(object):
     subject = attr.ib(default=None)
     sid = attr.ib(default=None)
@@ -10,7 +10,7 @@ class SubscriptionArgs(object):
     on_msg = attr.ib(default=None)
 
 
-@attr.s
+@attr.s(slots=True, frozen=True)
 class ServerInfo(object):
     server_id = attr.ib(default=None)
     version = attr.ib(default=None)

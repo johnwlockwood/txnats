@@ -204,7 +204,7 @@ class NatsProtocol(Protocol):
                     self.unsubs[sid] -= 1
                     if self.unsubs[sid] == 0:
                         del self.unsubs[sid]
-                        self.dispatch(actions.Unsub(sid, self))
+                        self.dispatch(actions.SubRemoved(sid, protocol=self))
 
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
@@ -293,7 +293,7 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         """
         self.sids["{}".format(sid)] = on_msg
-        self.dispatch(actions.Sub(
+        self.dispatch(actions.RequestSub(
             sid=sid,
             protocol=self,
             subject=subject,
@@ -325,11 +325,12 @@ class NatsProtocol(Protocol):
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
             self.unsubs[sid] = max_msgs
-        else:
-            self.dispatch(actions.Unsub(sid=sid, protocol=self))
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
+        if not max_msgs:
+            self.dispatch(actions.SubRemoved(sid, protocol=self))
+        self.dispatch(actions.RequestUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
 
     def ping(self):
         """
