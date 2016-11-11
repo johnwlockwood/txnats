@@ -16,10 +16,16 @@ class IsNatsProtocolTest(unittest.TestCase):
         """
         Ensure ReceivedPong takes the protocol.
         """
-        actions.ReceivedPong(txnats.io.NatsProtocol())
+        actions.ReceivedPong(txnats.io.NatsProtocol(), outstanding_pings=0)    
+
+    def test_send_ping(self):
+        """
+        Ensure SendPing takes the protocol.
+        """
+        actions.SendPing(txnats.io.NatsProtocol(), outstanding_pings=1)
 
     def test_sub_removed(self):
-        actions.SubRemoved("4", txnats.io.NatsProtocol())
+        actions.UnsubMaxReached("4", txnats.io.NatsProtocol())
 
     def test_request_unsub_immediate(self):
         "Ensure RequestUnsub accepts no max_msgs"

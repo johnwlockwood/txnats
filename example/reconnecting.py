@@ -19,6 +19,12 @@ from twisted.internet.endpoints import connectProtocol
 from twisted.internet import error
 
 
+def sleep(own_reactor, seconds):
+    d = defer.Deferred()
+    own_reactor.callLater(seconds, d.callback, seconds)
+    return d
+
+
 def on_happy_msg(nats_protocol, sid, subject, reply_to, payload):
     stdout.write(
         "sid: {}, subject: {}, reply-to: {}\r\n".format(
@@ -34,8 +40,8 @@ def someRequests(nats_protocol):
     """
     yield
     nats_protocol.unsub("6", 1)
+    nats_protocol.pub("happy", "Hello Subber".encode())
     log.info("mark unsub")
-
 
 @defer.inlineCallbacks
 def resilient_connect(point, protocol, backoff):
@@ -51,8 +57,7 @@ def resilient_connect(point, protocol, backoff):
             delay = backoff.get_delay()
             log.info("connection failed, sleep for {}".format(delay))
             log.error()
-            yield txnats.io.sleep(protocol.reactor, delay)
-
+            yield sleep(protocol.reactor, delay)
 
 def create_client(reactor, host, port):
     """
@@ -76,7 +81,6 @@ def create_client(reactor, host, port):
                 if sid in event.protocol.unsubs:
                     log.info("unsubscribing sid: {} with max_msgs: {}".format(sid, event.protocol.unsubs[sid]))
                     event.protocol.unsub(sid, max_msgs=event.protocol.unsubs[sid])
-            
             event.protocol.ping_loop.start(10, now=True)
         elif isinstance(event, actions.ReceivedInfo):
             log.info("got info")
@@ -87,17 +91,20 @@ def create_client(reactor, host, port):
                 sid=event.sid,
                 queue_group=event.queue_group,
                 on_msg=event.on_msg)
-        elif isinstance(event, actions.SubRemoved):
+        elif isinstance(event, actions.UnsubMaxReached):
             log.info("done subscription: {}".format(event.sid))
             del subscriptions[event.sid]
         elif isinstance(event, actions.RequestUnsub):
-            log.info("Unsub requested")
+            log.info("Unsub requested {}".format(event))
         elif isinstance(event, actions.ReceivedPing):
             log.info("got Ping")
         elif isinstance(event, actions.ReceivedPong):
-            log.info("got Pong")
+            log.info("got Pong outstanding: {}".format(event.outstanding_pings))
         elif isinstance(event, actions.SendPing):
-            log.info("Sending Ping")
+            log.info("Sending Ping outstanding: {}".format(event.outstanding_pings))
+            if event.outstanding_pings > 3:
+                log.info("Preemptivly disconnecting")
+                event.protocol.transport.loseConnection()
         elif isinstance(event, actions.SendPong):
             log.info("Sending Pong")
         elif isinstance(event, actions.Disconnected):
@@ -105,15 +112,16 @@ def create_client(reactor, host, port):
             if event.protocol.ping_loop.running:
                 event.protocol.ping_loop.stop()
         elif isinstance(event, actions.ConnectionLost):
-            log.info("connection lost")
+            log.info("connection lost {}".format(event.reason))
             if event.protocol.ping_loop.running:
                 log.info("stop pinging")
                 event.protocol.ping_loop.stop()
-            protocol = txnats.io.NatsProtocol(
-                verbose=True, 
-                event_subscribers=event.protocol.event_subscribers, 
-                unsubs=event.protocol.unsubs)
-            resilient_connect(point, protocol, backoff)
+            if not event.reason.check(error.ConnectionDone):
+                protocol = txnats.io.NatsProtocol(
+                    verbose=True, 
+                    event_subscribers=event.protocol.event_subscribers, 
+                    unsubs=event.protocol.unsubs)
+                resilient_connect(point, protocol, backoff)
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.
