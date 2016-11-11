@@ -27,9 +27,15 @@ class IsNatsProtocolTest(unittest.TestCase):
     def test_sub_removed(self):
         actions.UnsubMaxReached("4", txnats.io.NatsProtocol())
 
-    def test_request_unsub_immediate(self):
-        "Ensure RequestUnsub accepts no max_msgs"
-        actions.RequestUnsub("5", txnats.io.NatsProtocol())
+    def test_send_unsub_immediate(self):
+        "Ensure SendUnsub accepts no max_msgs"
+        actions.SendUnsub("5", txnats.io.NatsProtocol())
 
-    def test_request_unsub(self):
-        actions.RequestUnsub("5", txnats.io.NatsProtocol(), 3)
+    def test_send_unsub(self):
+        actions.SendUnsub("5", txnats.io.NatsProtocol(), 3)
+    
+    def test_send_sub(self):
+        actions.SendSub("6", txnats.io.NatsProtocol(), "a_subject")
+
+    def test_send_pub(self):
+        actions.SendPub(txnats.io.NatsProtocol(), "a_subject", b"hello", "callme")

@@ -256,7 +256,7 @@ class NatsProtocol(Protocol):
             self.client_info, separators=(',', ':')))
 
         self.transport.write(payload.encode())
-        self.dispatch(actions.Connect(self, client_info=self.client_info))
+        self.dispatch(actions.SendConnect(self, client_info=self.client_info))
 
     def pub(self, subject,  payload, reply_to=""):
         """
@@ -294,7 +294,7 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         """
         self.sids["{}".format(sid)] = on_msg
-        self.dispatch(actions.RequestSub(
+        self.dispatch(actions.SendSub(
             sid=sid,
             protocol=self,
             subject=subject,
@@ -329,7 +329,7 @@ class NatsProtocol(Protocol):
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
-        self.dispatch(actions.RequestUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
+        self.dispatch(actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
 
     def ping(self):
         """

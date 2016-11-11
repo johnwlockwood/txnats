@@ -55,7 +55,7 @@ class UnsubMaxReached(object):
 
 
 @attr.s(slots=True)
-class RequestUnsub(object):
+class SendUnsub(object):
     sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     max_msgs = attr.ib(
@@ -64,7 +64,7 @@ class RequestUnsub(object):
 
 
 @attr.s(slots=True)
-class RequestSub(object):
+class SendSub(object):
     """Request a subscription"""
     sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
@@ -106,7 +106,7 @@ class Disconnected(object):
 
 
 @attr.s(slots=True)
-class Connect(object):
+class SendConnect(object):
     """Sent CONNECT"""
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     client_info = attr.ib(default=None)

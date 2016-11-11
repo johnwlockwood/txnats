@@ -74,7 +74,7 @@ def create_client(reactor, host, port):
         }
             
     def event_subscriber(event):
-        if isinstance(event, actions.Connect):
+        if isinstance(event, actions.SendConnect):
             log.info("got connect")
             for sid, sub in subscriptions.items():
                 event.protocol.sub(sub.subject, sid, sub.queue_group, sub.on_msg)
@@ -84,7 +84,7 @@ def create_client(reactor, host, port):
             event.protocol.ping_loop.start(10, now=True)
         elif isinstance(event, actions.ReceivedInfo):
             log.info("got info")
-        elif isinstance(event, actions.RequestSub):
+        elif isinstance(event, actions.SendSub):
             log.info("got sub sid: {}".format(event.sid))
             subscriptions[event.sid]=txnats.config_state.SubscriptionArgs(
                 subject=event.subject,
@@ -94,7 +94,7 @@ def create_client(reactor, host, port):
         elif isinstance(event, actions.UnsubMaxReached):
             log.info("done subscription: {}".format(event.sid))
             del subscriptions[event.sid]
-        elif isinstance(event, actions.RequestUnsub):
+        elif isinstance(event, actions.SendUnsub):
             log.info("Unsub requested {}".format(event))
         elif isinstance(event, actions.ReceivedPing):
             log.info("got Ping")
