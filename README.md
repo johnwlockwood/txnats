@@ -57,7 +57,7 @@ Then in create the endpoint, nats protocol instance and connect them:
 
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
-        on_connect=lambda np: np.sub("happy", 6, on_msg=on_happy_msg))
+        on_connect=lambda np: np.sub("happy", "6", on_msg=on_happy_msg))
 
     connecting = connectProtocol(point, nats_protocol)
     reactor.run()
@@ -77,7 +77,7 @@ will publish a message to the `reply_to` subject of the message:
 
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
-        on_connect=lambda np: np.sub("get-response", 6, on_msg=respond_on_msg))
+        on_connect=lambda np: np.sub("get-response", "6", on_msg=respond_on_msg))
 
 For full context see [respond.py](example/respond.py)
 
@@ -88,7 +88,7 @@ and any message will go to one of the responders:
 
     nats_protocol = txnats.io.NatsProtocol(
         verbose=False,
-        on_connect=lambda np: np.sub("get-response", 6, 
+        on_connect=lambda np: np.sub("get-response", "6", 
                                      queue_group="excelsior", 
                                      on_msg=respond_on_msg))
 
