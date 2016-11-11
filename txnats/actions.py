@@ -77,7 +77,7 @@ class SendSub(object):
     on_msg = attr.ib(default=None)
 
 
-@attr.s(slots=True)    
+@attr.s(slots=True) 
 class SendPub(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     subject = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
