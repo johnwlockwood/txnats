@@ -1,1 +1,2 @@
-twisted==15.5.0
+twisted
+attrs

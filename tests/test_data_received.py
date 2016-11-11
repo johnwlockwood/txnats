@@ -5,9 +5,47 @@ from twisted.trial import unittest
 from twisted.internet import task
 from twisted.internet import defer
 
+from twisted.python import failure
+from twisted.internet import error
+
 import txnats
+from txnats import actions
 
 from tests.base import BaseTest
+
+class TestPartitionTolerance(BaseTest):
+
+    def test_reconnect(self):
+        """
+        Ensure reconnect is called upon connection lost.
+        """
+        def msg_handler(*args, **kwargs):
+            pass
+
+        self.call_count = 0
+
+        def reconnect(nats_protocol):
+            self.call_count += 1
+            self.assertIsInstance(nats_protocol, txnats.io.NatsProtocol)
+
+        def event_subscriber(event):
+            if isinstance(event, actions.ConnectionLost):
+                reconnect(event.protocol)
+
+        nats_protocol = txnats.io.NatsProtocol(
+            own_reactor=self.reactor, 
+            event_subscribers=[event_subscriber])
+        nats_protocol.transport = BytesIO()
+
+        self.nats_protocol.status = txnats.io.CONNECTED
+        self.nats_protocol.sub('inbox', "1", queue_group="a-queue-group",
+                               on_msg=msg_handler)
+        connectionLostFailure = failure.Failure(error.ConnectionLost())
+        nats_protocol.connectionLost(reason=connectionLostFailure)
+        self.reactor.advance(2)
+        self.assertEqual(nats_protocol.status, txnats.io.DISCONNECTED)
+        self.assertEqual(self.call_count, 1)
+
 
 class TestDataReceived(BaseTest):
     def test_queue_group_subscribe(self):
@@ -39,7 +77,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MSG mysubject 1 inbox1 7\r\nh\r\n"
@@ -67,7 +105,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(
                 payload, b"h\r\nello\r\nMSG asubject 3 breply 6\r\nsausage")
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MSG mysubject 1 inbox1 41\r\nh\r\n"
@@ -92,7 +130,7 @@ class TestDataReceived(BaseTest):
             self.assertEqual(reply_to, "inbox1")
             self.assertEqual(payload, b'h\r\nello')
 
-        self.nats_protocol.sub('inbox', 1, on_msg=msg_handler)
+        self.nats_protocol.sub('inbox', "1", on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(), b"SUB inbox 1\r\n")
         self.nats_protocol.dataReceived(
             b"MS"
@@ -165,7 +203,7 @@ class TestDataReceived(BaseTest):
 
         self.assertEqual(
             self.nats_protocol.server_settings,
-            txnats.io.ServerInfo(
+            txnats.config_state.ServerInfo(
                 auth_required=False,
                 go=u'go1.5.2',
                 host=u'0.0.0.0',

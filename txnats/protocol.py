@@ -1,4 +1,6 @@
+from __future__ import division, absolute_import
 from sys import stdout
+import attr
 import json
 from io import BytesIO
 from io import BufferedReader
@@ -8,38 +10,22 @@ from twisted.logger import Logger
 
 from twisted.internet import defer
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 from twisted.internet.protocol import Protocol
 from twisted.internet.protocol import connectionDone
 from twisted.internet import error
 
 from . import _meta
+from .config_state import ServerInfo
+from . import actions
+from .errors import NatsError
+
 
 LANG = "py.twisted"
 CLIENT_NAME = "txnats"
 
-
-ServerInfo = namedtuple(
-    "ServerInfo",
-    (
-        "server_id",
-        "version",
-        "go",
-        "host",
-        "port",
-        "auth_required",
-        "ssl_required",
-        "tls_required",
-        "tls_verify",
-        "max_payload",
-    ))
-
-
 DISCONNECTED = 0
 CONNECTED = 1
-
-
-class NatsError(Exception):
-    "Nats Error"
 
 
 class NatsProtocol(Protocol):
@@ -48,7 +34,7 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None, on_connect=None):
+                 password="", on_msg=None, on_connect=None, event_subscribers=None, unsubs=None):
         """
 
         @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
@@ -76,6 +62,7 @@ class NatsProtocol(Protocol):
         self.status = DISCONNECTED
         self.verbose = verbose
         # Set the number of PING sent out
+        self.ping_loop = LoopingCall(self.ping)
         self.pout = 0
         self.remaining_bytes = b''
 
@@ -92,13 +79,27 @@ class NatsProtocol(Protocol):
         }
         if on_msg:
             # Ensure the on_msg signature fits.
-            on_msg(nats_protocol=self, sid=0, subject=b"test-subject",
+            on_msg(nats_protocol=self, sid="0", subject=b"test-subject",
                    reply_to=b'', payload=b'hello, world')
         self.on_msg = on_msg
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
         self.sids = {}
+        self.unsubs = unsubs if unsubs else {}
+        self.event_subscribers = event_subscribers if event_subscribers is not None else []
+    
+    def __repr__(self):
+        return r'<NatsProtocol connected={} server_info={}>'.format(self.status, self.server_settings)
+
+    def dispatch(self, event):
+        """Redux
+        """
+        if self.event_subscribers is None:
+            return
+        for event_subscriber in self.event_subscribers:
+            event_subscriber(event)
+        return
 
     def connectionLost(self, reason=connectionDone):
         """Called when the connection is shut down.
@@ -113,10 +114,10 @@ class NatsProtocol(Protocol):
         """
         self.status = DISCONNECTED
         self.remaining_bytes = b''
-        if reason == error.ConnectionLost:
-            self.log.info("Connection Lost {reason}", reason=reason)
-        # TODO: add reconnect
-        # TODO: add resubscribe
+        if reason.check(error.ConnectionLost):
+            self.dispatch(actions.ConnectionLost(self, reason=reason))
+        else:  
+            self.dispatch(actions.Disconnected(self, reason=reason))
 
     def dataReceived(self, data):
         """
@@ -174,6 +175,7 @@ class NatsProtocol(Protocol):
 
                 if sid in self.sids:
                     on_msg = self.sids[sid]
+
                 else:
                     on_msg = self.on_msg
 
@@ -190,13 +192,27 @@ class NatsProtocol(Protocol):
                     stdout.write(val.decode())
                     stdout.write(payload.decode())
 
+                self.dispatch(
+                    actions.ReceivedMsg(
+                        sid, self, 
+                        subject=subject, 
+                        payload=payload, 
+                        reply_to=reply_to)
+                    )
+
+                if sid in self.unsubs:
+                    self.unsubs[sid] -= 1
+                    if self.unsubs[sid] == 0:
+                        del self.unsubs[sid]
+                        self.dispatch(actions.UnsubMaxReached(sid, protocol=self))
+
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
                     self.remaining_bytes += (command + val + payload
                                              + payload_post)
                     break
             elif command == b"PING":
-                self.log.info("got PING")
+                self.dispatch(actions.ReceivedPing(self))
                 self.pong()
                 val = data_buf.readline()
                 if val != b'\r\n':
@@ -204,6 +220,7 @@ class NatsProtocol(Protocol):
                     break
             elif command == b"PONG":
                 self.pout -= 1
+                self.dispatch(actions.ReceivedPong(self, outstanding_pings=self.pout))
                 val = data_buf.readline()
                 if val != b'\r\n':
                     self.remaining_bytes += command + val
@@ -215,19 +232,20 @@ class NatsProtocol(Protocol):
                     break
                 settings = json.loads(val.decode('utf8'))
                 self.server_settings = ServerInfo(**settings)
-                self.log.info("{server_info}", server_info=settings)
+                self.dispatch(actions.ReceivedInfo(
+                    self, server_info=self.server_settings))
                 self.status = CONNECTED
+                self.pout = 0
+                self.sids = {}
                 self.connect()
                 if self.on_connect_d:
                     self.on_connect_d.callback(self)
                     self.on_connect_d = None
             else:
-                self.log.info(b"Not handled command is: {command!r}",
-                              command=command)
+                self.dispatch(actions.UnhandledCommand(self, command=command))
                 val = data_buf.read()
                 self.remaining_bytes += command + val
             if not data_buf.peek(1):
-                self.log.debug("emptied data")
                 break
 
     def connect(self):
@@ -237,8 +255,8 @@ class NatsProtocol(Protocol):
         payload = 'CONNECT {}\r\n'.format(json.dumps(
             self.client_info, separators=(',', ':')))
 
-        self.log.info(b'CONNECT {client_info}', client_info=self.client_info)
         self.transport.write(payload.encode())
+        self.dispatch(actions.SendConnect(self, client_info=self.client_info))
 
     def pub(self, subject,  payload, reply_to=""):
         """
@@ -258,6 +276,7 @@ class NatsProtocol(Protocol):
             subject, reply_part, len(payload)).encode()
         op += payload + b'\r\n'
         self.transport.write(op)
+        self.dispatch(actions.SendPub(self, subject,  payload, reply_to))
 
     def sub(self, subject, sid, queue_group=None, on_msg=None):
         """
@@ -275,6 +294,13 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         """
         self.sids["{}".format(sid)] = on_msg
+        self.dispatch(actions.SendSub(
+            sid=sid,
+            protocol=self,
+            subject=subject,
+            queue_group=queue_group,
+            on_msg=on_msg
+        ))
 
         queue_group_part = ""
         if queue_group:
@@ -291,17 +317,19 @@ class NatsProtocol(Protocol):
 
         @param sid: The unique alphanumeric subscription ID of
          the subject to unsubscribe from.
-        @type sid: int
+        @type sid: str
         @param max_msgs: Optional number of messages to wait for before
          automatically unsubscribing.
-        @type sid: int
+        @type max_msgs: int
         """
         max_msgs_part = ""
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
+            self.unsubs[sid] = max_msgs
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
+        self.dispatch(actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
 
     def ping(self):
         """
@@ -309,16 +337,16 @@ class NatsProtocol(Protocol):
         """
         op = b"PING\r\n"
         self.transport.write(op)
-        self.log.info("PING")
         self.pout += 1
+        self.dispatch(actions.SendPing(self, outstanding_pings=self.pout))
 
     def pong(self):
         """
         Send pong.
         """
         op = b"PONG\r\n"
-        self.log.info("PONG")
         self.transport.write(op)
+        self.dispatch(actions.SendPong(self))
 
     def request(self, sid, subject):
         """
@@ -330,5 +358,3 @@ class NatsProtocol(Protocol):
         Do auto unsubscribe for one message.
         """
         raise NotImplementedError()
-
-

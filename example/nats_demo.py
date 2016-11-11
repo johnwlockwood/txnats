@@ -37,15 +37,15 @@ def somePubSubbing(nats_protocol):
     and publishing.
     """
     nats_protocol.ping()
-    nats_protocol.sub("happy", 1)
+    nats_protocol.sub("happy", "1")
 
     # sid_on_msg will be called when a message comes in on sid 2.
-    nats_protocol.sub("lucky", 2, on_msg=sid_on_msg)
+    nats_protocol.sub("lucky", "2", on_msg=sid_on_msg)
 
     # subscribe to a wildcard subject, associating it with sid 3 using the same
     # sid_on_msg callback.
-    nats_protocol.sub("smile.*", 3, on_msg=sid_on_msg)
-    nats_protocol.unsub(1, 4)
+    nats_protocol.sub("smile.*", "3", on_msg=sid_on_msg)
+    nats_protocol.unsub("1", 4)
     nats_protocol.pub("happy", "Hello Subber".encode())
     nats_protocol.pub("happy", "How".encode())
     nats_protocol.pub("lucky", "Spin To".encode())
@@ -70,8 +70,8 @@ def somePubSubbing(nats_protocol):
                           4, nats_protocol.pub, "lucky",
                           "and another thing".encode(), "gimmie")
 
-    nats_protocol.sub("inbox123", 4, on_msg=sid_on_msg)
-    nats_protocol.unsub(4, 1)
+    nats_protocol.sub("inbox123", "4", on_msg=sid_on_msg)
+    nats_protocol.unsub("4", 1)
     nats_protocol.pub("ssshh", b"Any one there?!!!", "inbox123")
 
     # Lose the connection one second after the "and another thing" msg.
