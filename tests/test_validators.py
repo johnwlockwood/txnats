@@ -27,6 +27,12 @@ class IsNatsProtocolTest(unittest.TestCase):
         """
         Foo("A.*", "33", protocol=txnats.io.NatsProtocol())
 
+    def test_wildcard_delimited_valid(self):
+        Foo("A.*", "33", protocol=txnats.io.NatsProtocol())
+        Foo("A.*.thing", "33", protocol=txnats.io.NatsProtocol())
+        Foo("A.>", "33", protocol=txnats.io.NatsProtocol())
+        Foo("A.*", "33", protocol=txnats.io.NatsProtocol())
+
     def test_wildcard_invalid(self):
         with self.assertRaises(ValueError):
             Foo("A.>ewr", "33", protocol=txnats.io.NatsProtocol())
