@@ -17,6 +17,8 @@ from twisted.internet import error
 
 from . import _meta
 from .config_state import ServerInfo
+from .config_state import ClientInfo
+from .config_state import SubscriptionArgs
 from . import actions
 from .errors import NatsError
 
@@ -34,7 +36,8 @@ class NatsProtocol(Protocol):
 
     def __init__(self, own_reactor=None, verbose=True, pedantic=False,
                  ssl_required=False, auth_token=None, user="",
-                 password="", on_msg=None, on_connect=None, event_subscribers=None, unsubs=None):
+                 password="", on_msg=None, on_connect=None, 
+                 event_subscribers=None, subscriptions=None, unsubs=None):
         """
 
         @param own_reactor: A Twisted Reactor, defaults to standard. Chiefly
@@ -57,6 +60,11 @@ class NatsProtocol(Protocol):
              @param payload: Bytes of the payload.
         @param on_connect: Callable that takes this instance of NatsProtocol
          which will be called upon the first successful connection.
+        @param event_subscribers: A collection of functions that take an 
+         event/action entity.
+        @param subscriptions: A dict of sids and SubscriptionArgs.
+        @param unsubs: A dict of sids and ints representing the number 
+         of messages for the sid before automatic unsubscription.
         """
         self.reactor = own_reactor if own_reactor else reactor
         self.status = DISCONNECTED
@@ -66,26 +74,22 @@ class NatsProtocol(Protocol):
         self.pout = 0
         self.remaining_bytes = b''
 
-        self.client_info = {
-            "verbose": verbose,
-            "pedantic": pedantic,
-            "ssl_required": ssl_required,
-            "auth_token": auth_token,
-            "user": user,
-            "pass": password,
-            "name": CLIENT_NAME,
-            "lang": LANG,
-            "version": _meta.version,
-        }
+        self.client_info = ClientInfo(
+            verbose, pedantic, ssl_required, 
+            auth_token, user, password, 
+            CLIENT_NAME, LANG, _meta.version)
+
         if on_msg:
             # Ensure the on_msg signature fits.
             on_msg(nats_protocol=self, sid="0", subject=b"test-subject",
                    reply_to=b'', payload=b'hello, world')
         self.on_msg = on_msg
+        self.on_connect = on_connect
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
         self.sids = {}
+        self.subscriptions = subscriptions if subscriptions is not None else {}
         self.unsubs = unsubs if unsubs else {}
         self.event_subscribers = event_subscribers if event_subscribers is not None else []
     
@@ -93,7 +97,7 @@ class NatsProtocol(Protocol):
         return r'<NatsProtocol connected={} server_info={}>'.format(self.status, self.server_settings)
 
     def dispatch(self, event):
-        """Redux
+        """Call each event subscriber with the event.
         """
         if self.event_subscribers is None:
             return
@@ -175,7 +179,6 @@ class NatsProtocol(Protocol):
 
                 if sid in self.sids:
                     on_msg = self.sids[sid]
-
                 else:
                     on_msg = self.on_msg
 
@@ -202,9 +205,8 @@ class NatsProtocol(Protocol):
 
                 if sid in self.unsubs:
                     self.unsubs[sid] -= 1
-                    if self.unsubs[sid] == 0:
-                        del self.unsubs[sid]
-                        self.dispatch(actions.UnsubMaxReached(sid, protocol=self))
+                    if self.unsubs[sid] <= 0:
+                        self.unsub(sid)
 
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
@@ -253,7 +255,8 @@ class NatsProtocol(Protocol):
         Tell the NATS server about this client and it's options.
         """
         payload = 'CONNECT {}\r\n'.format(json.dumps(
-            self.client_info, separators=(',', ':')))
+            self.client_info.asdict_for_connect()
+            , separators=(',', ':')))
 
         self.transport.write(payload.encode())
         self.dispatch(actions.SendConnect(self, client_info=self.client_info))
@@ -278,6 +281,22 @@ class NatsProtocol(Protocol):
         self.transport.write(op)
         self.dispatch(actions.SendPub(self, subject,  payload, reply_to))
 
+    def apply_subscriptions(self):
+        """
+        Subscribe all the subscriptions and unsubscribe all of 
+        the unsubscriptions.
+
+        Builds the state of subscriptions and unsubscriptions 
+        with max messages.
+        """
+        if self.status == CONNECTED:
+            for sid, sub_args in self.subscriptions.items():
+                self.sub(
+                    sub_args.subject, sub_args.sid, 
+                    sub_args.queue_group, sub_args.on_msg)
+                if sid in self.unsubs:
+                    self.unsub(sid, max_msgs=self.unsubs[sid])
+
     def sub(self, subject, sid, queue_group=None, on_msg=None):
         """
         Subscribe to a subject.
@@ -293,7 +312,9 @@ class NatsProtocol(Protocol):
              @param reply_to: The reply to.
              @param payload: Bytes of the payload.
         """
-        self.sids["{}".format(sid)] = on_msg
+        self.sids[sid] = on_msg
+        self.subscriptions[sid] = SubscriptionArgs(
+            subject, sid, queue_group, on_msg)
         self.dispatch(actions.SendSub(
             sid=sid,
             protocol=self,
@@ -326,6 +347,14 @@ class NatsProtocol(Protocol):
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
             self.unsubs[sid] = max_msgs
+        else:
+            if sid in self.unsubs:
+                del self.unsubs[sid]
+                self.dispatch(actions.UnsubMaxReached(sid, protocol=self))
+            if sid in self.subscriptions:
+                del self.subscriptions[sid]
+            if sid in self.sids:
+                del self.sids[sid]
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
