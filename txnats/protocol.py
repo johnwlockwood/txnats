@@ -255,12 +255,13 @@ class NatsProtocol(Protocol):
         """
         Tell the NATS server about this client and it's options.
         """
+        action = actions.SendConnect(self, client_info=self.client_info)
         payload = 'CONNECT {}\r\n'.format(json.dumps(
             self.client_info.asdict_for_connect()
             , separators=(',', ':')))
 
         self.transport.write(payload.encode())
-        self.dispatch(actions.SendConnect(self, client_info=self.client_info))
+        self.dispatch(action)
 
     def pub(self, subject,  payload, reply_to=None):
         """
@@ -358,6 +359,7 @@ class NatsProtocol(Protocol):
          automatically unsubscribing.
         @type max_msgs: int
         """
+        action = actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs)
         max_msgs_part = ""
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
@@ -367,7 +369,7 @@ class NatsProtocol(Protocol):
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
-        self.dispatch(actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
+        self.dispatch(action)
 
     def ping(self):
         """

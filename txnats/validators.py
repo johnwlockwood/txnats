@@ -19,7 +19,8 @@ def is_subject_id(instance, attribute, value):
 
 
 def is_subject(instance, attribute, value):
-    if not isinstance(value, SID_SUBJECT_TYPES) or not re.match("^[\w\d\.\*\>]+$", value):
+    if not isinstance(value, SID_SUBJECT_TYPES) or not re.match(
+        "^([\w\d]*)(\.[\w\d]+)?(\.\*\.[\w\d]*)?(\.\*)?(^>)?(\.>)?$", value) or value == "":
         raise ValueError(
             "The value of {} must be an alpha numeric string with the "
             "exception of '*' '.' and '>'! got: {}".format(
