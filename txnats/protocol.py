@@ -81,8 +81,8 @@ class NatsProtocol(Protocol):
 
         if on_msg:
             # Ensure the on_msg signature fits.
-            on_msg(nats_protocol=self, sid="0", subject=b"test-subject",
-                   reply_to=b'', payload=b'hello, world')
+            on_msg(nats_protocol=self, sid="0", subject="testSubject",
+                   reply_to='inBox', payload=b'hello, world')
         self.on_msg = on_msg
         self.on_connect = on_connect
         self.on_connect_d = defer.Deferred()
@@ -255,14 +255,15 @@ class NatsProtocol(Protocol):
         """
         Tell the NATS server about this client and it's options.
         """
+        action = actions.SendConnect(self, client_info=self.client_info)
         payload = 'CONNECT {}\r\n'.format(json.dumps(
             self.client_info.asdict_for_connect()
             , separators=(',', ':')))
 
         self.transport.write(payload.encode())
-        self.dispatch(actions.SendConnect(self, client_info=self.client_info))
+        self.dispatch(action)
 
-    def pub(self, subject,  payload, reply_to=""):
+    def pub(self, subject,  payload, reply_to=None):
         """
         Publish a payload of bytes to a subject.
 
@@ -271,6 +272,7 @@ class NatsProtocol(Protocol):
          to send a response back to the publisher/requestor.
         @param payload: The message payload data, in bytes.
         """
+        action = actions.SendPub(self, subject,  payload, reply_to)
         reply_part = ""
         if reply_to:
             reply_part = "{} ".format(reply_to)
@@ -280,7 +282,7 @@ class NatsProtocol(Protocol):
             subject, reply_part, len(payload)).encode()
         op += payload + b'\r\n'
         self.transport.write(op)
-        self.dispatch(actions.SendPub(self, subject,  payload, reply_to))
+        self.dispatch(action)
 
     def apply_subscriptions(self):
         """
@@ -357,6 +359,7 @@ class NatsProtocol(Protocol):
          automatically unsubscribing.
         @type max_msgs: int
         """
+        action = actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs)
         max_msgs_part = ""
         if max_msgs:
             max_msgs_part = "{}".format(max_msgs)
@@ -366,7 +369,7 @@ class NatsProtocol(Protocol):
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
-        self.dispatch(actions.SendUnsub(sid=sid, protocol=self, max_msgs=max_msgs))
+        self.dispatch(action)
 
     def ping(self):
         """

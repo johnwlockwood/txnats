@@ -3,9 +3,8 @@ from __future__ import division, absolute_import
 import attr
 from .config_state import ServerInfo
 from .validators import is_instance_of_nats_protocol
-
-
-SID_TYPES = (type(u""), type(""))
+from .validators import is_subject
+from .validators import is_subject_id
 
 
 @attr.s(slots=True)
@@ -31,15 +30,11 @@ class ReceivedPong(object):
 
 @attr.s(slots=True)
 class ReceivedMsg(object):
-    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    sid = attr.ib(validator=is_subject_id)
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
-    subject = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    subject = attr.ib(validator=is_subject)
     payload = attr.ib(validator=attr.validators.instance_of(bytes))
-    reply_to = attr.ib( 
-        validator=attr.validators.optional(
-            attr.validators.instance_of(SID_TYPES)
-        )
-    )
+    reply_to = attr.ib(validator=attr.validators.optional(is_subject))
 
 
 @attr.s(slots=True)
@@ -50,13 +45,13 @@ class ReceivedInfo(object):
 
 @attr.s(slots=True)
 class UnsubMaxReached(object):
-    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    sid = attr.ib(validator=is_subject_id)
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
 
 
 @attr.s(slots=True)
 class SendUnsub(object):
-    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    sid = attr.ib(validator=is_subject_id)
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
     max_msgs = attr.ib(
         default=None, 
@@ -66,23 +61,20 @@ class SendUnsub(object):
 @attr.s(slots=True)
 class SendSub(object):
     """Request a subscription"""
-    sid = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    sid = attr.ib(validator=is_subject_id)
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
-    subject = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    subject = attr.ib(validator=is_subject)
     queue_group = attr.ib(default=None, 
-        validator=attr.validators.optional(
-            attr.validators.instance_of(SID_TYPES)
-        )
-    )
+        validator=attr.validators.optional(is_subject_id))
     on_msg = attr.ib(default=None)
 
 
-@attr.s(slots=True) 
+@attr.s(slots=True)
 class SendPub(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
-    subject = attr.ib(validator=attr.validators.instance_of(SID_TYPES))
+    subject = attr.ib(validator=is_subject)
     payload = attr.ib(validator=attr.validators.instance_of(bytes))
-    reply_to = attr.ib(attr.validators.instance_of(SID_TYPES))
+    reply_to = attr.ib(validator=attr.validators.optional(is_subject))
 
 
 @attr.s(slots=True)

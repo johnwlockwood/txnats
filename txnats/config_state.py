@@ -1,12 +1,18 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import
 
 import attr
 
+from .validators import is_subject
+from .validators import is_subject_id
+
+
 @attr.s(slots=True)
 class SubscriptionArgs(object):
-    subject = attr.ib(validator=attr.validators.instance_of((type(u""), type(""))))
-    sid = attr.ib(validator=attr.validators.instance_of((type(u""), type(""))))
-    queue_group = attr.ib(default=None)
+    subject = attr.ib(validator=is_subject)
+    sid = attr.ib(validator=is_subject_id)
+    queue_group = attr.ib(
+        default=None, 
+        validator=attr.validators.optional(is_subject))
     on_msg = attr.ib(default=None)
 
 
