@@ -38,7 +38,7 @@ class TestPartitionTolerance(BaseTest):
         nats_protocol.transport = BytesIO()
 
         self.nats_protocol.status = txnats.io.CONNECTED
-        self.nats_protocol.sub('inbox', "1", queue_group="a-queue-group",
+        self.nats_protocol.sub('inbox', "1", queue_group="aQueueGroup",
                                on_msg=msg_handler)
         connectionLostFailure = failure.Failure(error.ConnectionLost())
         nats_protocol.connectionLost(reason=connectionLostFailure)
@@ -56,10 +56,10 @@ class TestDataReceived(BaseTest):
         def msg_handler(*args, **kwargs):
             pass
         self.nats_protocol.sub('inbox', "1",
-                               queue_group="a-queue-group",
+                               queue_group="aQueueGroup",
                                on_msg=msg_handler)
         self.assertEqual(self.transport.getvalue(),
-                         b"SUB inbox a-queue-group 1\r\n")
+                         b"SUB inbox aQueueGroup 1\r\n")
 
     def test_split_msg_payload(self):
         """

@@ -81,8 +81,8 @@ class NatsProtocol(Protocol):
 
         if on_msg:
             # Ensure the on_msg signature fits.
-            on_msg(nats_protocol=self, sid="0", subject=b"test-subject",
-                   reply_to=b'', payload=b'hello, world')
+            on_msg(nats_protocol=self, sid="0", subject="testSubject",
+                   reply_to='inBox', payload=b'hello, world')
         self.on_msg = on_msg
         self.on_connect = on_connect
         self.on_connect_d = defer.Deferred()
@@ -262,7 +262,7 @@ class NatsProtocol(Protocol):
         self.transport.write(payload.encode())
         self.dispatch(actions.SendConnect(self, client_info=self.client_info))
 
-    def pub(self, subject,  payload, reply_to=""):
+    def pub(self, subject,  payload, reply_to=None):
         """
         Publish a payload of bytes to a subject.
 
@@ -271,6 +271,7 @@ class NatsProtocol(Protocol):
          to send a response back to the publisher/requestor.
         @param payload: The message payload data, in bytes.
         """
+        action = actions.SendPub(self, subject,  payload, reply_to)
         reply_part = ""
         if reply_to:
             reply_part = "{} ".format(reply_to)
@@ -280,7 +281,7 @@ class NatsProtocol(Protocol):
             subject, reply_part, len(payload)).encode()
         op += payload + b'\r\n'
         self.transport.write(op)
-        self.dispatch(actions.SendPub(self, subject,  payload, reply_to))
+        self.dispatch(action)
 
     def apply_subscriptions(self):
         """
