@@ -36,10 +36,13 @@ def connect(point, protocol, backoff, max_retries=100):
 def make_reconnector(point, backoff, max_retries=100):
     """
     Makes and returns an event subscriber function that, in the event of
-    a disconnect, it calls this module's connect function.
+    a disconnect, it calls this module's connect function, and upon
+    sending the client connect, apply the subscription state.
     """
     def reconnector(event):
-        if isinstance(event, actions.ConnectionLost):
+        if isinstance(event, actions.SendConnect):
+            event.protocol.apply_subscriptions()
+        elif isinstance(event, actions.ConnectionLost):
             if event.protocol.ping_loop.running:
                 event.protocol.ping_loop.stop()
             if not event.reason.check(error.ConnectionDone):

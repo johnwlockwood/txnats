@@ -34,15 +34,16 @@ def someRequests(nats_protocol):
     """
     yield
     nats_protocol.unsub("6", 1)
+    nats_protocol.unsub("7", 3)
     nats_protocol.pub("happy", "Hello Subber".encode())
     nats_protocol.pub("happy", "Still There?".encode())
+    nats_protocol.pub("water", "tinkle".encode())
     log.info("mark unsub")
 
 
 def event_subscriber(event):
     if isinstance(event, actions.SendConnect):
         log.info("got connect")
-        event.protocol.apply_subscriptions()
     elif isinstance(event, actions.ReceivedInfo):
         log.info("got info")
     elif isinstance(event, actions.SendSub):
@@ -73,7 +74,8 @@ def create_client(reactor, host, port):
     point = TCP4ClientEndpoint(reactor, host, port)
     backoff = txnats.Backoff()
     subscriptions = {
-        "6": txnats.config_state.SubscriptionArgs(subject="happy", sid="6", on_msg=on_happy_msg)
+        "6": txnats.config_state.SubscriptionArgs(subject="happy", sid="6", on_msg=on_happy_msg),
+        "7": txnats.config_state.SubscriptionArgs(subject="water", sid="7", on_msg=on_happy_msg),
         }
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
