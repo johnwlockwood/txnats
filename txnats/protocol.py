@@ -206,7 +206,8 @@ class NatsProtocol(Protocol):
                 if sid in self.unsubs:
                     self.unsubs[sid] -= 1
                     if self.unsubs[sid] <= 0:
-                        self.unsub(sid)
+                        self._forget_subscription(sid)
+                        self.dispatch(actions.UnsubMaxReached(sid, protocol=self))
 
                 payload_post = data_buf.readline()
                 if payload_post != b'\r\n':
@@ -330,6 +331,19 @@ class NatsProtocol(Protocol):
         op = "SUB {} {}{}\r\n".format(subject, queue_group_part, sid)
         self.transport.write(op.encode('utf8'))
 
+    def _forget_subscription(self, sid):
+        """Undeclare a subscription. Any on_msg declared for the subscription 
+        will no longer be called.
+        If a apply_subscriptions is called,
+        which it is during a reconnect, These subscriptions will not be 
+        established. """
+        if sid in self.unsubs:
+            del self.unsubs[sid]
+        if sid in self.subscriptions:
+            del self.subscriptions[sid]
+        if sid in self.sids:
+            del self.sids[sid]
+
     def unsub(self, sid, max_msgs=None):
         """
         Unsubcribes the connection from the specified subject,
@@ -348,13 +362,7 @@ class NatsProtocol(Protocol):
             max_msgs_part = "{}".format(max_msgs)
             self.unsubs[sid] = max_msgs
         else:
-            if sid in self.unsubs:
-                del self.unsubs[sid]
-                self.dispatch(actions.UnsubMaxReached(sid, protocol=self))
-            if sid in self.subscriptions:
-                del self.subscriptions[sid]
-            if sid in self.sids:
-                del self.sids[sid]
+            self._forget_subscription(sid)
 
         op = "UNSUB {} {}\r\n".format(sid, max_msgs_part)
         self.transport.write(op.encode('utf8'))
