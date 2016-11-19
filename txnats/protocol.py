@@ -1,5 +1,7 @@
 from __future__ import division, absolute_import
 from sys import stdout
+import random
+import string
 import attr
 import json
 from io import BytesIO
@@ -21,7 +23,6 @@ from .config_state import ClientInfo
 from .config_state import SubscriptionArgs
 from . import actions
 from .errors import NatsError
-
 
 LANG = "py.twisted"
 CLIENT_NAME = "txnats"
@@ -88,7 +89,10 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
+            self.on_connect_d.addErrback(lambda np: self.log.debug("{p}", p=np))
+
         self.sids = {}
+        self.requests = {}
         self.subscriptions = subscriptions if subscriptions is not None else {}
         self.unsubs = unsubs if unsubs else {}
         self.event_subscribers = event_subscribers if event_subscribers is not None else []
@@ -403,6 +407,7 @@ class NatsProtocol(Protocol):
         Do auto unsubscribe for one message.
         """
         request_id = None
+        deferred=defer.Deferred()
         while True:
             request_id = ''.join(
                 random.choice(
@@ -415,16 +420,17 @@ class NatsProtocol(Protocol):
                     string.ascii_uppercase + string.digits) for _ in range(12))
             if sid not in self.sids:
                 break
-
+        
         request = actions.Request(sid, subject, payload,
-            reply_to=request_id, deferred=defer.Deferred())
+            reply_to=request_id, deferred=deferred)
+
         self.requests[request_id] = request
 
-        def sid_on_msg(nats_protocol, sid, subject, reply_to, response_payload):
+        def sid_on_msg(nats_protocol, sid, subject, reply_to, payload):
             del self.requests[request_id] 
-            request.deferred.callback(response_payload)
+            deferred.callback(payload)
 
-        self.sub(reply_to, sid, on_msg=sid_on_msg)
+        self.sub(request_id, sid, on_msg=sid_on_msg)
         self.unsub(sid, 1)
         self.pub(subject, payload, request_id)
-        return request.deferred
+        return deferred

@@ -83,7 +83,7 @@ class Request(object):
     subject = attr.ib(validator=is_subject)
     payload = attr.ib(validator=attr.validators.instance_of(bytes))
     reply_to = attr.ib(validator=attr.validators.optional(is_subject))
-    callback = attr.ib(default=None)
+    deferred = attr.ib()
 
 
 @attr.s(slots=True)

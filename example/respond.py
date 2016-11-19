@@ -51,7 +51,7 @@ def create_client(reactor, host, port):
     """
     log.info("Start client.")
     point = TCP4ClientEndpoint(reactor, host, port)
-    nats_protocol = txnats.io.NatsProtocol(verbose=False, on_connect=listen)
+    nats_protocol = txnats.io.NatsProtocol(verbose=True, on_connect=listen)
 
     # Because NatsProtocol implements the Protocol interface, Twisted's
     # connectProtocol knows how to connected to the endpoint.
