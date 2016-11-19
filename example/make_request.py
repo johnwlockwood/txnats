@@ -50,11 +50,21 @@ def someRequests(nats_protocol):
     and publishing.
     """
     log.info("about to request")
-    d = nats_protocol.request("ssshh", "Boo")
-    d.addErrback(lambda np: log.info("{p}", p=np))
+    response_payload = yield nats_protocol.request("ssshh", "Boo")
+    log.info("response : {}".format(response_payload))
+    response_payload = yield nats_protocol.request("ssshh", "Woo")
+    log.info("response : {}".format(response_payload))
+    response_payload = yield nats_protocol.request("ssshh", "Choo")
+    log.info("response : {}".format(response_payload))
+
+    requests = []
+    for n in xrange(100):
+        requests.append(nats_protocol.request("ssshh", "Foo {}".format(n)))
+    response_payload = yield defer.gatherResults(requests)
+    #d.addErrback(lambda np: log.info("{p}", p=np))
     # Log what is returned by the connectProtocol.
-    d.addCallback(lambda np: log.info("{p}", p=np))
-    log.info("response : {}".format("dd"))
+    #d.addCallback(lambda np: log.info("{p}", p=np))
+    log.info("response : {}".format(response_payload))
 
     # Lose the connection one second after the "and another thing" msg.
     yield task.deferLater(nats_protocol.reactor,
@@ -73,7 +83,7 @@ def main(reactor):
     nats_protocol = txnats.io.NatsProtocol(
         verbose=True,
         event_subscribers=[
-                event_subscriber
+                #event_subscriber
             ],
         on_connect=someRequests)
 
