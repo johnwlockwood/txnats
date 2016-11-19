@@ -40,7 +40,7 @@ def someRequests(nats_protocol):
     client_inbox = "inbox_{}".format(client_id)
     nats_protocol.sub(client_inbox, "1", on_msg=sid_on_msg)
     for x in range(100):
-        nats_protocol.pub("aqueue",
+        nats_protocol.pub("aQueue",
                           "Do something! {}".format(x).encode(),
                           client_inbox)
 
