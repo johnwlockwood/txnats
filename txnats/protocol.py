@@ -98,7 +98,6 @@ class NatsProtocol(Protocol):
         return r'<NatsProtocol connected={} server_info={}>'.format(self.status, self.server_settings)
 
     def _eb_trace_and_raise(self, failure):
-        #self.log.failure("Unhandled Error during on_connect", failure=failure)
         failure.printTraceback()
         failure.raiseException()
 
