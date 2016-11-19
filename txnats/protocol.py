@@ -88,6 +88,7 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
+            self.on_connect_d.addErrback(self._eb_trace_and_raise)
         self.sids = {}
         self.subscriptions = subscriptions if subscriptions is not None else {}
         self.unsubs = unsubs if unsubs else {}
@@ -95,6 +96,10 @@ class NatsProtocol(Protocol):
     
     def __repr__(self):
         return r'<NatsProtocol connected={} server_info={}>'.format(self.status, self.server_settings)
+
+    def _eb_trace_and_raise(self, failure):
+        failure.printTraceback()
+        failure.raiseException()
 
     def dispatch(self, event):
         """Call each event subscriber with the event.
