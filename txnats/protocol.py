@@ -388,13 +388,43 @@ class NatsProtocol(Protocol):
         self.transport.write(op)
         self.dispatch(actions.SendPong(self))
 
-    def request(self, sid, subject):
+    def request(self, subject, payload):
         """
+        How to do this declaratively
+
         Make a synchronous request for a subject.
+        declare publish with a timeout that if not replied to in time, will unregister
+
+        make random sid
 
         Make a reply to.
         Subscribe to the subject.
         Make a Deferred and add it to the inbox under the reply to.
         Do auto unsubscribe for one message.
         """
-        raise NotImplementedError()
+        request_id = None
+        while True
+            request_id = '.join(
+                random.choice(
+                    string.ascii_uppercase + string.digits) for _ in range(8))
+            if request_id not in self.requests:
+                break
+        while True
+            sid = '.join(
+                random.choice(
+                    string.ascii_uppercase + string.digits) for _ in range(12))
+            if sid not in self.sids:
+                break
+
+        request = actions.Request(sid, subject, payload,
+            reply_to=request_id, deferred=defer.Deferred())
+        self.requests[request_id] = request
+
+        def sid_on_msg(nats_protocol, sid, subject, reply_to, response_payload):
+            del self.requests[request_id] 
+            request.deferred.callback(response_payload)
+
+        self.sub(reply_to, sid, on_msg=sid_on_msg)
+        self.unsub(sid, 1)
+        self.pub(subject, payload, request_id)
+        return request.deferred

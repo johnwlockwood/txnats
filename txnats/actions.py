@@ -77,6 +77,15 @@ class SendPub(object):
     reply_to = attr.ib(validator=attr.validators.optional(is_subject))
 
 
+@attr.s(slots=True) 
+class Request(object):
+    sid = attr.ib(validator=is_subject_id)
+    subject = attr.ib(validator=is_subject)
+    payload = attr.ib(validator=attr.validators.instance_of(bytes))
+    reply_to = attr.ib(validator=attr.validators.optional(is_subject))
+    callback = attr.ib(default=None)
+
+
 @attr.s(slots=True)
 class UnhandledCommand(object):
     protocol = attr.ib(validator=is_instance_of_nats_protocol)
