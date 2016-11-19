@@ -403,14 +403,14 @@ class NatsProtocol(Protocol):
         Do auto unsubscribe for one message.
         """
         request_id = None
-        while True
-            request_id = '.join(
+        while True:
+            request_id = ''.join(
                 random.choice(
                     string.ascii_uppercase + string.digits) for _ in range(8))
             if request_id not in self.requests:
                 break
-        while True
-            sid = '.join(
+        while True:
+            sid = ''.join(
                 random.choice(
                     string.ascii_uppercase + string.digits) for _ in range(12))
             if sid not in self.sids:
