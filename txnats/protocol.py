@@ -89,7 +89,7 @@ class NatsProtocol(Protocol):
         self.on_connect_d = defer.Deferred()
         if on_connect:
             self.on_connect_d.addCallback(on_connect)
-            self.on_connect_d.addErrback(lambda np: self.log.debug("{p}", p=np))
+            self.on_connect_d.addErrback(lambda f: f.printTraceback())
 
         self.sids = {}
         self.requests = {}
