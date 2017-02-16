@@ -33,6 +33,14 @@ class IsNatsProtocolTest(unittest.TestCase):
         Foo("A.>", "33", protocol=txnats.io.NatsProtocol())
         Foo("A.*", "33", protocol=txnats.io.NatsProtocol())
 
+    def test_underscore(self):
+        """
+        Ensure underscore and dashes may be used in a subject.
+        """
+        Foo("_INBOX.23sdfs", "33", protocol=txnats.io.NatsProtocol())
+        Foo("_INB-OX.23-sdfs", "33", protocol=txnats.io.NatsProtocol())
+        Foo("B.2-a", "33", protocol=txnats.io.NatsProtocol())
+        
     def test_wildcard_invalid(self):
         with self.assertRaises(ValueError):
             Foo("A.>ewr", "33", protocol=txnats.io.NatsProtocol())
